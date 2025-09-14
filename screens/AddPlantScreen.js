@@ -20,18 +20,6 @@ const AddPlantScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={() => navigation.goBack()} // ✅ go back to previous screen
-        >
-          <MaterialIcons name="close" size={24} color={COLORS.textSecondary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Plant</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
       {/* Form Content */}
       <ScrollView contentContainerStyle={styles.screenContainer}>
         {/* Photo Upload */}
