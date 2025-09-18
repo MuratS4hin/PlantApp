@@ -1,35 +1,128 @@
 import React, { useState } from "react";
-import { COLORS } from "../utils/Constants";
-
 import {
   SafeAreaView,
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
+  ScrollView,
+  Modal,
+  TouchableWithoutFeedback,
+  Image
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { COLORS } from "../utils/Constants";
+import { Picker } from "@react-native-picker/picker";
+import * as ImagePicker from "expo-image-picker";
+import useAppStore from "../store/UseAppStore";
 
-const AddPlantScreen = ({ navigation }) => {
+const AddPlantScreen = () => {
+  const addPlant = useAppStore((state) => state.addPlant);
   const [plantName, setPlantName] = useState("");
   const [plantType, setPlantType] = useState("");
-  const [sunlight, setSunlight] = useState("");
   const [careNotes, setCareNotes] = useState("");
+  const [plantImage, setPlantImage] = useState(null);
+
+  // Watering
+  const [wateringNumber, setWateringNumber] = useState("0");
+  const [wateringUnit, setWateringUnit] = useState("days");
+  const [showWateringNumber, setShowWateringNumber] = useState(false);
+  const [showWateringUnit, setShowWateringUnit] = useState(false);
+
+  // Fertilizing
+  const [fertilizingNumber, setFertilizingNumber] = useState("0");
+  const [fertilizingUnit, setFertilizingUnit] = useState("months");
+  const [showFertilizingNumber, setShowFertilizingNumber] = useState(false);
+  const [showFertilizingUnit, setShowFertilizingUnit] = useState(false);
+
+  // Sunlight
+  const [sunlightValue, setSunlightValue] = useState("low");
+  const [showSunlight, setShowSunlight] = useState(false);
+
+  const numbers = Array.from({ length: 61 }, (_, i) => `${i + 0}`);
+  const timeUnits = ["days", "weeks", "months"];
+  const sunlightItems = ["low", "medium", "indirect", "direct"];
+
+  const renderPickerField = (label, value, onPress) => (
+    <TouchableOpacity style={styles.dropdownField} onPress={onPress}>
+      <Text style={{ color: value ? COLORS.textPrimary : COLORS.textSecondary }}>
+        {value || label}
+      </Text>
+      <MaterialIcons name="arrow-drop-down" size={20} color={COLORS.gray400} />
+    </TouchableOpacity>
+  );
+
+  const pickImage = async () => {
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      alert("Permission required to access photos!");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setPlantImage(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = () => {
+    const newPlant = {
+      id: Date.now(), // unique ID
+      plantName,
+      plantType,
+      plantImage,
+      wateringNumber: wateringNumber,
+      wateringUnit:  wateringUnit,
+      wateringDayUnit: wateringNumber * (wateringUnit == "week" ? 7 : wateringUnit == "months" ? 30 : 1),
+      sunlight: sunlightValue,
+      fertilizingNumber: fertilizingNumber,
+      fertilizingUnit: fertilizingUnit,
+      careNotes,
+      lastWatered: Date.now(),
+      lastFertilized: Date.now(),
+    };
+
+    addPlant(newPlant);
+    alert("Plant saved successfully!");
+
+    // optional: clear form
+    setPlantName("");
+    setPlantType("");
+    setCareNotes("");
+    setPlantImage(null);
+    setWateringNumber("0");
+    setWateringUnit("days");
+    setFertilizingNumber("0");
+    setFertilizingUnit("months");
+    setSunlightValue("low");
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Form Content */}
       <ScrollView contentContainerStyle={styles.screenContainer}>
         {/* Photo Upload */}
-        <TouchableOpacity style={styles.addPhotoContainer}>
-          <MaterialIcons
-            name="add-a-photo"
-            size={40}
-            color={COLORS.gray200}
-          />
-          <Text style={styles.addPhotoText}>Add a photo</Text>
+        <TouchableOpacity style={styles.addPhotoContainer} onPress={pickImage}>
+          {plantImage ? (
+            <Image source={{ uri: plantImage }} style={styles.plantImage} />
+          ) : (
+            <>
+              <MaterialIcons
+                name="add-a-photo"
+                size={40}
+                color={COLORS.gray200}
+              />
+              <Text style={styles.addPhotoText}>Add a photo</Text>
+            </>
+          )}
         </TouchableOpacity>
 
         {/* Plant Name */}
@@ -43,7 +136,7 @@ const AddPlantScreen = ({ navigation }) => {
           />
         </View>
 
-        {/* Plant Type (simple text input for now) */}
+        {/* Plant Type */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Plant Type</Text>
           <TextInput
@@ -54,27 +147,38 @@ const AddPlantScreen = ({ navigation }) => {
           />
         </View>
 
-        {/* Dates (just text inputs here; you can later integrate a DatePicker) */}
-        <View style={styles.row}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Text style={styles.label}>Acquisition Date</Text>
-            <TextInput style={styles.input} placeholder="YYYY-MM-DD" />
-          </View>
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text style={styles.label}>First Watered</Text>
-            <TextInput style={styles.input} placeholder="YYYY-MM-DD" />
+        {/* Watering */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Watering</Text>
+          <View style={styles.inlineRow}>
+            {renderPickerField("Number", wateringNumber, () =>
+              setShowWateringNumber(true)
+            )}
+            {renderPickerField("Unit", wateringUnit, () =>
+              setShowWateringUnit(true)
+            )}
           </View>
         </View>
 
         {/* Sunlight */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Sunlight</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Low / Indirect / Direct"
-            value={sunlight}
-            onChangeText={setSunlight}
-          />
+          {renderPickerField("Select sunlight", sunlightValue, () =>
+            setShowSunlight(true)
+          )}
+        </View>
+
+        {/* Fertilizing */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Fertilizing</Text>
+          <View style={styles.inlineRow}>
+            {renderPickerField("Number", fertilizingNumber, () =>
+              setShowFertilizingNumber(true)
+            )}
+            {renderPickerField("Unit", fertilizingUnit, () =>
+              setShowFertilizingUnit(true)
+            )}
+          </View>
         </View>
 
         {/* Care Notes */}
@@ -88,14 +192,131 @@ const AddPlantScreen = ({ navigation }) => {
             multiline
           />
         </View>
+
+        {/* Save button */}
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveButtonText}>Save</Text>
+        </TouchableOpacity>
       </ScrollView>
 
-      {/* Submit Button */}
-      <View style={styles.stickyButtonContainer}>
-        <TouchableOpacity style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Add Plant</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Pickers in Modals */}
+      <Modal visible={showWateringNumber} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <TouchableWithoutFeedback onPress={() => setShowWateringNumber(false)}>
+            <View style={styles.overlay} />
+          </TouchableWithoutFeedback>
+          <View style={styles.modalBox}>
+            <Picker
+              selectedValue={wateringNumber}
+              onValueChange={(val) => setWateringNumber(val)}>
+              {numbers.map((num) => (
+                <Picker.Item key={num} label={num} value={num} />
+              ))}
+            </Picker>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowWateringNumber(false)}>
+              <Text style={styles.modalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showWateringUnit} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <TouchableWithoutFeedback onPress={() => setShowWateringUnit(false)}>
+            <View style={styles.overlay} />
+          </TouchableWithoutFeedback>
+          <View style={styles.modalBox}>
+            <Picker
+              selectedValue={wateringUnit}
+              onValueChange={(val) => setWateringUnit(val)}
+            >
+              {timeUnits.map((unit) => (
+                <Picker.Item key={unit} label={unit} value={unit} />
+              ))}
+            </Picker>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowWateringUnit(false)}
+            >
+              <Text style={styles.modalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showSunlight} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <TouchableWithoutFeedback onPress={() => setShowSunlight(false)}>
+            <View style={styles.overlay} />
+          </TouchableWithoutFeedback>
+          <View style={styles.modalBox}>
+            <Picker
+              selectedValue={sunlightValue}
+              onValueChange={(val) => setSunlightValue(val)}
+            >
+              {sunlightItems.map((item) => (
+                <Picker.Item key={item} label={item} value={item} />
+              ))}
+            </Picker>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowSunlight(false)}
+            >
+              <Text style={styles.modalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showFertilizingNumber} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <TouchableWithoutFeedback onPress={() => setShowFertilizingNumber(false)}>
+            <View style={styles.overlay} />
+          </TouchableWithoutFeedback>
+          <View style={styles.modalBox}>
+            <Picker
+              selectedValue={fertilizingNumber}
+              onValueChange={(val) => setFertilizingNumber(val)}
+            >
+              {numbers.map((num) => (
+                <Picker.Item key={num} label={num} value={num} />
+              ))}
+            </Picker>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowFertilizingNumber(false)}
+            >
+              <Text style={styles.modalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showFertilizingUnit} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <TouchableWithoutFeedback onPress={() => setShowFertilizingUnit(false)}>
+            <View style={styles.overlay} />
+          </TouchableWithoutFeedback>
+          <View style={styles.modalBox}>
+            <Picker
+              selectedValue={fertilizingUnit}
+              onValueChange={(val) => setFertilizingUnit(val)}
+            >
+              {timeUnits.map((unit) => (
+                <Picker.Item key={unit} label={unit} value={unit} />
+              ))}
+            </Picker>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowFertilizingUnit(false)}
+            >
+              <Text style={styles.modalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -104,19 +325,8 @@ export default AddPlantScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-  },
-  closeButton: { padding: 4 },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-  },
-  screenContainer: { padding: 16 },
+  screenContainer: { padding: 16, paddingBottom: 100 },
+  formGroup: { marginBottom: 16 },
   addPhotoContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -126,12 +336,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 20,
   },
+  plantImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    resizeMode: "cover",
+  },
+
   addPhotoText: {
     marginTop: 8,
     fontSize: 14,
     color: COLORS.textSecondary,
   },
-  formGroup: { marginBottom: 16 },
   label: {
     fontSize: 14,
     fontWeight: "500",
@@ -146,22 +362,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     backgroundColor: COLORS.white,
   },
-  row: { flexDirection: "row", marginBottom: 16 },
-  stickyButtonContainer: {
-    padding: 16,
-    borderTopWidth: 1,
+  inlineRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  dropdownField: {
+    flex: 1,
+    borderWidth: 1,
     borderColor: COLORS.gray200,
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     backgroundColor: COLORS.white,
   },
-  primaryButton: {
+  modalContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  overlay: {
+    flex: 1, // outside area to tap and close
+  },
+  saveButton: {
+    marginTop: 30,
     backgroundColor: COLORS.primary,
-    paddingVertical: 14,
+    padding: 15,
     borderRadius: 8,
     alignItems: "center",
   },
-  primaryButtonText: {
-    color: COLORS.white,
+  saveButtonText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  modalBox: {
+    backgroundColor: "white",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    paddingBottom: 20,
+  },
+  modalButton: {
+    padding: 14,
+    alignItems: "center",
+  },
+  modalButtonText: {
     fontSize: 16,
+    color: COLORS.primary,
     fontWeight: "600",
   },
 });

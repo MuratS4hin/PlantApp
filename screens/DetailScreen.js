@@ -6,7 +6,6 @@ import { careHistory } from '../utils/Constants';
 
 const DetailScreen = ({ navigation, route }) => {
   const { plant } = route.params;
-  console.log('DetailScreen route params:', route.params);
 
   return (
     <View style={styles.container}>
@@ -14,7 +13,7 @@ const DetailScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Plant Image */}
         <View style={{ padding: 16 }}>
-          <Image source={{ uri: plant.image }} style={styles.detailImage} resizeMode="cover" />
+          <Image source={{ uri: plant.plantImage }} style={styles.detailImage} resizeMode="cover" />
         </View>
 
         {/* Care Schedule */}
@@ -24,17 +23,17 @@ const DetailScreen = ({ navigation, route }) => {
             <View style={styles.careItem}>
               <MaterialIcons name="water-drop" size={30} color={COLORS.green700} />
               <Text style={styles.careItemTitle}>Watering</Text>
-              <Text style={styles.careItemSubtitle}>Every 7 days</Text>
+              <Text style={styles.careItemSubtitle}>Every {plant.wateringNumber} {plant.wateringUnit}</Text>
             </View>
             <View style={styles.careItem}>
               <MaterialIcons name="wb-sunny" size={30} color={COLORS.green700} />
               <Text style={styles.careItemTitle}>Sunlight</Text>
-              <Text style={styles.careItemSubtitle}>Bright, indirect</Text>
+              <Text style={styles.careItemSubtitle}>{plant.sunlight}</Text>
             </View>
             <View style={styles.careItem}>
               <MaterialIcons name="science" size={30} color={COLORS.green700} />
               <Text style={styles.careItemTitle}>Fertilizing</Text>
-              <Text style={styles.careItemSubtitle}>Every 2 months</Text>
+              <Text style={styles.careItemSubtitle}>Every {plant.fertilizingNumber} {plant.fertilizingUnit}</Text>
             </View>
           </View>
         </View>
