@@ -9,7 +9,7 @@ import {
   ScrollView,
   Modal,
   TouchableWithoutFeedback,
-  Image
+  Image,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../utils/Constants";
@@ -40,7 +40,7 @@ const AddPlantScreen = () => {
   const [sunlightValue, setSunlightValue] = useState("low");
   const [showSunlight, setShowSunlight] = useState(false);
 
-  const numbers = Array.from({ length: 61 }, (_, i) => `${i + 0}`);
+  const numbers = Array.from({ length: 61 }, (_, i) => `${i}`);
   const timeUnits = ["days", "weeks", "months"];
   const sunlightItems = ["low", "medium", "indirect", "direct"];
 
@@ -76,13 +76,19 @@ const AddPlantScreen = () => {
 
   const handleSave = () => {
     const newPlant = {
-      id: Date.now(), // unique ID
+      id: Date.now(),
       plantName,
       plantType,
       plantImage,
       wateringNumber: wateringNumber,
-      wateringUnit:  wateringUnit,
-      wateringDayUnit: wateringNumber * (wateringUnit == "week" ? 7 : wateringUnit == "months" ? 30 : 1),
+      wateringUnit: wateringUnit,
+      wateringDayUnit:
+        wateringNumber *
+        (wateringUnit == "week"
+          ? 7
+          : wateringUnit == "months"
+          ? 30
+          : 1),
       sunlight: sunlightValue,
       fertilizingNumber: fertilizingNumber,
       fertilizingUnit: fertilizingUnit,
@@ -94,7 +100,7 @@ const AddPlantScreen = () => {
     addPlant(newPlant);
     alert("Plant saved successfully!");
 
-    // optional: clear form
+    // clear form
     setPlantName("");
     setPlantType("");
     setCareNotes("");
@@ -202,20 +208,29 @@ const AddPlantScreen = () => {
       {/* Pickers in Modals */}
       <Modal visible={showWateringNumber} transparent animationType="fade">
         <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback onPress={() => setShowWateringNumber(false)}>
+          <TouchableWithoutFeedback
+            onPress={() => setShowWateringNumber(false)}
+          >
             <View style={styles.overlay} />
           </TouchableWithoutFeedback>
           <View style={styles.modalBox}>
             <Picker
               selectedValue={wateringNumber}
-              onValueChange={(val) => setWateringNumber(val)}>
+              onValueChange={(val) => setWateringNumber(val)}
+            >
               {numbers.map((num) => (
-                <Picker.Item key={num} label={num} value={num} />
+                <Picker.Item
+                  key={num}
+                  label={num}
+                  value={num}
+                  color="black"
+                />
               ))}
             </Picker>
             <TouchableOpacity
               style={styles.modalButton}
-              onPress={() => setShowWateringNumber(false)}>
+              onPress={() => setShowWateringNumber(false)}
+            >
               <Text style={styles.modalButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
@@ -224,7 +239,9 @@ const AddPlantScreen = () => {
 
       <Modal visible={showWateringUnit} transparent animationType="fade">
         <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback onPress={() => setShowWateringUnit(false)}>
+          <TouchableWithoutFeedback
+            onPress={() => setShowWateringUnit(false)}
+          >
             <View style={styles.overlay} />
           </TouchableWithoutFeedback>
           <View style={styles.modalBox}>
@@ -233,7 +250,12 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setWateringUnit(val)}
             >
               {timeUnits.map((unit) => (
-                <Picker.Item key={unit} label={unit} value={unit} />
+                <Picker.Item
+                  key={unit}
+                  label={unit}
+                  value={unit}
+                  color="black"
+                />
               ))}
             </Picker>
             <TouchableOpacity
@@ -257,7 +279,12 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setSunlightValue(val)}
             >
               {sunlightItems.map((item) => (
-                <Picker.Item key={item} label={item} value={item} />
+                <Picker.Item
+                  key={item}
+                  label={item}
+                  value={item}
+                  color="black"
+                />
               ))}
             </Picker>
             <TouchableOpacity
@@ -272,7 +299,9 @@ const AddPlantScreen = () => {
 
       <Modal visible={showFertilizingNumber} transparent animationType="fade">
         <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback onPress={() => setShowFertilizingNumber(false)}>
+          <TouchableWithoutFeedback
+            onPress={() => setShowFertilizingNumber(false)}
+          >
             <View style={styles.overlay} />
           </TouchableWithoutFeedback>
           <View style={styles.modalBox}>
@@ -281,7 +310,12 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setFertilizingNumber(val)}
             >
               {numbers.map((num) => (
-                <Picker.Item key={num} label={num} value={num} />
+                <Picker.Item
+                  key={num}
+                  label={num}
+                  value={num}
+                  color="black"
+                />
               ))}
             </Picker>
             <TouchableOpacity
@@ -296,7 +330,9 @@ const AddPlantScreen = () => {
 
       <Modal visible={showFertilizingUnit} transparent animationType="fade">
         <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback onPress={() => setShowFertilizingUnit(false)}>
+          <TouchableWithoutFeedback
+            onPress={() => setShowFertilizingUnit(false)}
+          >
             <View style={styles.overlay} />
           </TouchableWithoutFeedback>
           <View style={styles.modalBox}>
@@ -305,7 +341,12 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setFertilizingUnit(val)}
             >
               {timeUnits.map((unit) => (
-                <Picker.Item key={unit} label={unit} value={unit} />
+                <Picker.Item
+                  key={unit}
+                  label={unit}
+                  value={unit}
+                  color="black"
+                />
               ))}
             </Picker>
             <TouchableOpacity
@@ -342,7 +383,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     resizeMode: "cover",
   },
-
   addPhotoText: {
     marginTop: 8,
     fontSize: 14,
@@ -384,7 +424,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
   },
   overlay: {
-    flex: 1, // outside area to tap and close
+    flex: 1,
   },
   saveButton: {
     marginTop: 30,

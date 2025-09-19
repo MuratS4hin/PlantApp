@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "reactapp",
-    "slug": "reactapp",
+    "name": "PlantCare",
+    "slug": "PlantCare",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,6 +24,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "361758e5-deb1-4d91-94be-033ea6230d92"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/361758e5-deb1-4d91-94be-033ea6230d92"
     }
   }
 }
