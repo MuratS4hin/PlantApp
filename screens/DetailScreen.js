@@ -3,12 +3,42 @@ import { View, Text, ScrollView, Image, TouchableOpacity, StyleSheet } from 'rea
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../utils/Constants';
 import { careHistory } from '../utils/Constants';
+import useAppStore from '../store/UseAppStore';
+import { Alert } from 'react-native';
 
 const DetailScreen = ({ navigation, route }) => {
   const { plant } = route.params;
+  const deletePlant = useAppStore((state) => state.deletePlant);
+
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Plant",
+      "Are you sure you want to delete this plant?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deletePlant(plant.id);
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
+      {/* Buttons */}
+      <View style={styles.detailHeader}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate("AddPlant", { plant: plant })}>
+          <MaterialIcons name="edit" size={20} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.headerButton} onPress={handleDelete}>
+          <MaterialIcons name="delete" size={20} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+      </View>
       {/* Content */}
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Plant Image */}
@@ -73,13 +103,13 @@ const DetailScreen = ({ navigation, route }) => {
         </View>
       </ScrollView>
 
-      {/* Sticky Add Button */}
+      {/* Sticky Add Button 
       <View style={styles.stickyButtonContainer}>
         <TouchableOpacity style={styles.addCareButton} onPress={() => console.log('Add Care Activity')}>
           <MaterialIcons name="add-circle" size={20} color={COLORS.white} />
           <Text style={styles.addCareButtonText}>Add Care Activity</Text>
         </TouchableOpacity>
-      </View>
+      </View>*/}
     </View>
   );
 };
@@ -87,13 +117,7 @@ const DetailScreen = ({ navigation, route }) => {
 // --- Styles ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-  detailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: COLORS.white,
-  },
+  detailHeader: {flexDirection: 'row',alignItems: 'center',justifyContent: 'flex-end',paddingTop: 12,paddingRight:10,backgroundColor: COLORS.white},
   detailHeaderTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
   headerButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   detailImage: { width: '100%', aspectRatio: 4 / 3, borderRadius: 16 },

@@ -38,19 +38,19 @@ function MainStackNavigator() {
         name="Home"
         component={HomeScreen}
         options={({ navigation }) => ({
-          title: 'My Plants',
+          title: 'PlantCare',
           // headerLeft: () => (
           //   <HeaderIcon
           //     onPress={() => navigation.openDrawer()}
           //     iconName="menu-outline"
           //   />
           // ),
-          headerRight: () => (
-            <HeaderIcon
-              onPress={() => navigation.navigate('ProfileScreen')}
-              iconName="person-circle-outline"
-            />
-          ),
+          // headerRight: () => (
+          //   <HeaderIcon
+          //     onPress={() => navigation.navigate('ProfileScreen')}
+          //     iconName="person-circle-outline"
+          //   />
+          // ),
         })}
       />
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -17,8 +17,12 @@ import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import useAppStore from "../store/UseAppStore";
 
-const AddPlantScreen = () => {
+const AddPlantScreen = ({ route, navigation }) => {
   const addPlant = useAppStore((state) => state.addPlant);
+  const updatePlant = useAppStore((state) => state.updatePlant);
+
+  const editPlant = route?.params?.plant || null; // Edit mode if plant exists
+
   const [plantName, setPlantName] = useState("");
   const [plantType, setPlantType] = useState("");
   const [careNotes, setCareNotes] = useState("");
@@ -44,6 +48,21 @@ const AddPlantScreen = () => {
   const timeUnits = ["days", "weeks", "months"];
   const sunlightItems = ["low", "medium", "indirect", "direct"];
 
+  // Prefill data if editing
+  useEffect(() => {
+    if (editPlant) {
+      setPlantName(editPlant.plantName);
+      setPlantType(editPlant.plantType);
+      setCareNotes(editPlant.careNotes);
+      setPlantImage(editPlant.plantImage);
+      setWateringNumber(String(editPlant.wateringNumber));
+      setWateringUnit(editPlant.wateringUnit);
+      setFertilizingNumber(String(editPlant.fertilizingNumber));
+      setFertilizingUnit(editPlant.fertilizingUnit);
+      setSunlightValue(editPlant.sunlight);
+    }
+  }, [editPlant]);
+
   const renderPickerField = (label, value, onPress) => (
     <TouchableOpacity style={styles.dropdownField} onPress={onPress}>
       <Text style={{ color: value ? COLORS.textPrimary : COLORS.textSecondary }}>
@@ -56,60 +75,49 @@ const AddPlantScreen = () => {
   const pickImage = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (!permissionResult.granted) {
       alert("Permission required to access photos!");
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
     });
-
     if (!result.canceled) {
       setPlantImage(result.assets[0].uri);
     }
   };
 
   const handleSave = () => {
-    const newPlant = {
-      id: Date.now(),
+    const plantData = {
+      id: editPlant ? editPlant.id : Date.now(),
       plantName,
       plantType,
       plantImage,
-      wateringNumber: wateringNumber,
-      wateringUnit: wateringUnit,
+      wateringNumber,
+      wateringUnit,
       wateringDayUnit:
         wateringNumber *
-        (wateringUnit == "week"
-          ? 7
-          : wateringUnit == "months"
-          ? 30
-          : 1),
+        (wateringUnit === "weeks" ? 7 : wateringUnit === "months" ? 30 : 1),
       sunlight: sunlightValue,
-      fertilizingNumber: fertilizingNumber,
-      fertilizingUnit: fertilizingUnit,
+      fertilizingNumber,
+      fertilizingUnit,
       careNotes,
-      lastWatered: Date.now(),
-      lastFertilized: Date.now(),
+      lastWatered: editPlant ? editPlant.lastWatered : Date.now(),
+      lastFertilized: editPlant ? editPlant.lastFertilized : Date.now(),
     };
 
-    addPlant(newPlant);
-    alert("Plant saved successfully!");
+    if (editPlant) {
+      updatePlant(plantData);
+      alert("Plant updated successfully!");
+    } else {
+      addPlant(plantData);
+      alert("Plant saved successfully!");
+    }
 
-    // clear form
-    setPlantName("");
-    setPlantType("");
-    setCareNotes("");
-    setPlantImage(null);
-    setWateringNumber("0");
-    setWateringUnit("days");
-    setFertilizingNumber("0");
-    setFertilizingUnit("months");
-    setSunlightValue("low");
+    navigation.goBack();
   };
 
   return (
@@ -199,9 +207,11 @@ const AddPlantScreen = () => {
           />
         </View>
 
-        {/* Save button */}
+        {/* Save/Update button */}
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save</Text>
+          <Text style={styles.saveButtonText}>
+            {editPlant ? "Update" : "Save"}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -219,12 +229,7 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setWateringNumber(val)}
             >
               {numbers.map((num) => (
-                <Picker.Item
-                  key={num}
-                  label={num}
-                  value={num}
-                  color="black"
-                />
+                <Picker.Item key={num} label={num} value={num} color="black" />
               ))}
             </Picker>
             <TouchableOpacity
@@ -239,9 +244,7 @@ const AddPlantScreen = () => {
 
       <Modal visible={showWateringUnit} transparent animationType="fade">
         <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback
-            onPress={() => setShowWateringUnit(false)}
-          >
+          <TouchableWithoutFeedback onPress={() => setShowWateringUnit(false)}>
             <View style={styles.overlay} />
           </TouchableWithoutFeedback>
           <View style={styles.modalBox}>
@@ -250,12 +253,7 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setWateringUnit(val)}
             >
               {timeUnits.map((unit) => (
-                <Picker.Item
-                  key={unit}
-                  label={unit}
-                  value={unit}
-                  color="black"
-                />
+                <Picker.Item key={unit} label={unit} value={unit} color="black" />
               ))}
             </Picker>
             <TouchableOpacity
@@ -279,12 +277,7 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setSunlightValue(val)}
             >
               {sunlightItems.map((item) => (
-                <Picker.Item
-                  key={item}
-                  label={item}
-                  value={item}
-                  color="black"
-                />
+                <Picker.Item key={item} label={item} value={item} color="black" />
               ))}
             </Picker>
             <TouchableOpacity
@@ -310,12 +303,7 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setFertilizingNumber(val)}
             >
               {numbers.map((num) => (
-                <Picker.Item
-                  key={num}
-                  label={num}
-                  value={num}
-                  color="black"
-                />
+                <Picker.Item key={num} label={num} value={num} color="black" />
               ))}
             </Picker>
             <TouchableOpacity
@@ -341,12 +329,7 @@ const AddPlantScreen = () => {
               onValueChange={(val) => setFertilizingUnit(val)}
             >
               {timeUnits.map((unit) => (
-                <Picker.Item
-                  key={unit}
-                  label={unit}
-                  value={unit}
-                  color="black"
-                />
+                <Picker.Item key={unit} label={unit} value={unit} color="black" />
               ))}
             </Picker>
             <TouchableOpacity
@@ -423,9 +406,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.4)",
   },
-  overlay: {
-    flex: 1,
-  },
+  overlay: { flex: 1 },
   saveButton: {
     marginTop: 30,
     backgroundColor: COLORS.primary,
