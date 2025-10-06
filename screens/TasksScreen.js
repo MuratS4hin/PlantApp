@@ -41,7 +41,7 @@ const TaskCard = ({ task, navigation }) => {
 
   const daysLeft = Math.max(
     0,
-    task.wateringDayUnit - Math.ceil((Date.now() - task.lastWatered) / (1000 * 60 * 60 * 24))
+    task.dayUnit - Math.ceil((Date.now() - task.lastDate) / (1000 * 60 * 60 * 24))
   );
 
   return (
@@ -80,7 +80,7 @@ const TaskCard = ({ task, navigation }) => {
           <Image source={{ uri: task.plantImage }} style={styles.taskImage} />
           <View style={{ flex: 1 }}>
             <Text style={styles.taskPlantName}>{task.plantName}</Text>
-            <Text style={styles.taskDetailText}>Water in {daysLeft} Days</Text>
+            <Text style={styles.taskDetailText}>{task.type} in {daysLeft} Days</Text>
           </View>
         </TouchableOpacity>
 
@@ -105,19 +105,45 @@ const TaskCard = ({ task, navigation }) => {
 const HomeScreen = ({ navigation }) => {
   const allPlants = useAppStore((state) => state.AllPlants);
 
+  const tasks = allPlants.flatMap((plant) => [
+    {
+      id: plant.id + "_water",         // unique ID for watering task
+      plantName: plant.plantName,
+      plantImage: plant.plantImage,
+      type: "Water",
+      lastDate: plant.lastWatered,
+      dayUnit: plant.wateringDayUnit,
+    },
+    {
+      id: plant.id + "_fertilize",     // unique ID for fertilizing task
+      plantName: plant.plantName,
+      plantImage: plant.plantImage,
+      type: "Fertilize",
+      lastDate: plant.lastFertilized,
+      dayUnit: plant.fertilizingDayUnit,
+    },
+  ]);
+
+  // Sort tasks by days left until next care
+  const orderedTasks = tasks.sort((a, b) => {
+    const aDaysLeft = a.dayUnit - Math.ceil((Date.now() - a.lastDate) / (1000 * 60 * 60 * 24));
+    const bDaysLeft = b.dayUnit - Math.ceil((Date.now() - b.lastDate) / (1000 * 60 * 60 * 24));
+    return aDaysLeft - bDaysLeft;
+  });
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.screenContainer}>
-        {allPlants.length === 0 ? (
+        {orderedTasks.length === 0 ? (
           <ImageBackground
-            source={require('../assets/background.png')} // 👈 your image path
+            source={require('../assets/background.png')}
             style={styles.backgroundImage}
             imageStyle={{ opacity: 0.6 }}
             resizeMode="cover"
           >
             <View style={styles.emptyStateContainer}>
               <View style={styles.overlay}>
-                <Text style={styles.title}>Welcome to PlantPal</Text>
+                <Text style={styles.title}>Welcome to Plant Care</Text>
                 <Text style={styles.subtitle}>
                   Your personal guide to thriving indoor plants.
                 </Text>
@@ -129,16 +155,16 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.taskTitle}>
               <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
             </View>
-            {allPlants.map((task) => (
+            {orderedTasks.map((task) => (
               <TaskCard key={task.id} task={task} navigation={navigation} />
             ))}
           </View>
         )}
-
       </ScrollView>
     </SafeAreaView>
   );
 };
+
 
 
 export default HomeScreen;
@@ -146,7 +172,7 @@ export default HomeScreen;
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   screenContainer: { padding: 10, flexGrow: 1 },
-  sectionTitle: { fontSize: 18, fontWeight: "600", marginVertical: 16 , marginLeft: 10},
+  sectionTitle: { fontSize: 18, fontWeight: "600", marginVertical: 16, marginLeft: 10 },
   taskCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -164,7 +190,7 @@ export const styles = StyleSheet.create({
   overlay: { backgroundColor: "rgba(255, 255, 255, 0.72)", padding: 20, borderRadius: 1, alignItems: "center" },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 8 },
   subtitle: { fontSize: 16, textAlign: "center" },
-  taskTitle: { flexDirection: "row",justifyContent: "flex-start",alignItems: "center",marginBottom: 12},
+  taskTitle: { flexDirection: "row", justifyContent: "flex-start", alignItems: "center", marginBottom: 12 },
   emptyStateContainer: {
     flex: 1,
     justifyContent: "center",

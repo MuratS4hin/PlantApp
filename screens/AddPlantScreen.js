@@ -104,6 +104,9 @@ const AddPlantScreen = ({ route, navigation }) => {
       sunlight: sunlightValue,
       fertilizingNumber,
       fertilizingUnit,
+      fertilizingDayUnit:
+        fertilizingNumber *
+        (fertilizingUnit === "weeks" ? 7 : fertilizingUnit === "months" ? 30 : 1),
       careNotes,
       lastWatered: editPlant ? editPlant.lastWatered : Date.now(),
       lastFertilized: editPlant ? editPlant.lastFertilized : Date.now(),
