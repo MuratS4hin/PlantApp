@@ -7,7 +7,9 @@ import useAppStore from '../store/UseAppStore';
 import { formatDate } from '../utils/Helpers';
 
 const DetailScreen = ({ navigation, route }) => {
-  const { plant } = route.params;
+  const { plantId } = route.params;
+  const plant = useAppStore((state) => state.getPlant(plantId));
+  console.log("DetailScreen - plant:", plantId, plant);
   const deletePlant = useAppStore((state) => state.deletePlant);
 
   const handleDelete = () => {

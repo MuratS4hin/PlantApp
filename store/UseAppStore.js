@@ -4,22 +4,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const useAppStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       AllPlants: [],
 
-      // Actions
+      // Get a plant by ID
+      getPlant: (id) => {
+        const state = get();
+        return state.AllPlants.find((p) => p.id === id);
+      },
+
+      // Add a new plant
       addPlant: (plant) =>
         set((state) => ({
           AllPlants: [...state.AllPlants, plant],
         })),
 
-      updateTask: (id, updates) =>
-        set((state) => ({
-          AllPlants: state.AllPlants.map((p) =>
-            p.id === id ? { ...p, ...updates } : p
-          ),
-        })),
-
+      // Update a plant by ID
       updatePlant: (updatedPlant) =>
         set((state) => ({
           AllPlants: state.AllPlants.map((p) =>
@@ -27,11 +27,13 @@ const useAppStore = create(
           ),
         })),
 
+      // Delete a plant by ID
       deletePlant: (id) =>
         set((state) => ({
           AllPlants: state.AllPlants.filter((p) => p.id !== id),
         })),
 
+      // Clear all plants
       clearPlants: () => set({ AllPlants: [] }),
     }),
     {

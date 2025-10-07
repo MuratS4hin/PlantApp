@@ -17,7 +17,7 @@ export const styles = StyleSheet.create({
   taskDetailText: { fontSize: 14, color: COLORS.textSecondary, fontSize: 16},
   taskDetail: { fontSize: 14, color: COLORS.primary},
   plantGrid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
-  plantCard: { width: "48%", backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.gray200, marginBottom: 16 },
+  plantCard: { width: "45%", backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.gray200, marginBottom: 16 },
   plantImage: { width: "100%", height: 128, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
   plantInfo: { padding: 8 },
   plantName: { fontWeight: "600", fontSize: 15 },
