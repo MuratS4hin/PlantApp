@@ -11,7 +11,7 @@ const MyPlantsScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.screenContainer}>
-        
+
         {/* Header Row */}
         <View style={styles.headerRow}>
           <Text style={styles.sectionTitle}>My Plants</Text>
@@ -50,11 +50,24 @@ export default MyPlantsScreen;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   screenContainer: { padding: 16 },
-  headerRow: {flexDirection: "row",justifyContent: "flex-start",alignItems: "center",marginBottom: 12,},
-  addButton: {backgroundColor: COLORS.primary,borderRadius: 20,padding: 0, marginLeft: 12,},
+  headerRow: { flexDirection: "row", justifyContent: "flex-start", alignItems: "center", marginBottom: 12, },
+  addButton: { backgroundColor: COLORS.primary, borderRadius: 20, padding: 0, marginLeft: 12, },
   sectionTitle: { fontSize: 18, fontWeight: "600", marginVertical: 16 },
-  plantGrid: { flexDirection: "row" , justifyContent: "space-between"},
-  plantCard: { width: "48%", backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.gray200, marginBottom: 16 },
+  plantGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 8, // equal space left/right
+  },
+
+  plantCard: {
+    width: "48%", // two per row with space-between
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+    marginBottom: 16, // vertical gap between rows
+  }, 
   plantImage: { width: "100%", height: 128, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
   plantInfo: { padding: 8 },
   plantName: { fontWeight: "600", fontSize: 15 },
