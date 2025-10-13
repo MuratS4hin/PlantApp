@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   SafeAreaView,
   View,
@@ -9,15 +9,100 @@ import {
   Animated,
   StyleSheet,
   ImageBackground,
+  Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../utils/Constants';
 import useAppStore from '../store/UseAppStore';
 
+// --- Global Constants ---
+const TABS = {
+  UPCOMING: 'Upcoming',
+  WATERING: 'Watering',
+  FERTILIZING: 'Fertilizing',
+};
+
+const useTaskLogic = () => {
+  const allPlants = useAppStore((state) => state.AllPlants);
+  const [activeTab, setActiveTab] = useState(TABS.UPCOMING);
+  const hasPlants = allPlants.length > 0;
+
+  // 1. Generate ALL Tasks from all plants
+  const allTasks = useMemo(() => {
+    return allPlants.flatMap((plant) => {
+        // Guard against plants without IDs or names (optional)
+        if (!plant.id) return []; 
+        
+        return [
+          {
+            id: plant.id + '_water',
+            plantId: plant.id,
+            plantName: plant.plantName,
+            plantImage: plant.plantImage,
+            type: 'Water',
+            lastDate: plant.lastWatered,
+            dayUnit: plant.wateringDayUnit,
+          },
+          {
+            id: plant.id + '_fertilize',
+            plantId: plant.id,
+            plantName: plant.plantName,
+            plantImage: plant.plantImage,
+            type: 'Fertilize',
+            lastDate: plant.lastFertilized,
+            dayUnit: plant.fertilizingDayUnit,
+          },
+        ].filter(task => task.dayUnit > 0); // Only include tasks with a set frequency
+    });
+  }, [allPlants]);
+  
+  // Helper to calculate days left
+  const calculateDaysLeft = (task) =>
+    task.dayUnit - Math.ceil((Date.now() - task.lastDate) / (1000 * 60 * 60 * 24));
+
+  // 2. Filter and Sort Tasks based on Active Tab
+  const filteredTasks = useMemo(() => {
+    let tasks = allTasks;
+
+    // Filtering
+    if (activeTab === TABS.UPCOMING) {
+      tasks = allTasks.filter((task) => {
+        const daysLeft = calculateDaysLeft(task);
+        // Upcoming: Due in 7 days or less, but not overdue (daysLeft >= 0)
+        return daysLeft <= 7; 
+      });
+    } else if (activeTab === TABS.WATERING) {
+      tasks = allTasks.filter((task) => task.type === 'Water');
+    } else if (activeTab === TABS.FERTILIZING) {
+      tasks = allTasks.filter((task) => task.type === 'Fertilize');
+    }
+
+    // Sorting: Always sort by days left to show the most urgent first
+    return tasks.sort((a, b) => {
+      const aDaysLeft = calculateDaysLeft(a);
+      const bDaysLeft = calculateDaysLeft(b);
+      return aDaysLeft - bDaysLeft;
+    });
+  }, [allTasks, activeTab]);
+
+  return { activeTab, setActiveTab, filteredTasks, hasPlants };
+};
+
+const TabButton = ({ title, isActive, onPress }) => (
+  <TouchableOpacity
+    style={[styles.tabButton, isActive && styles.tabButtonActive]}
+    onPress={onPress}
+  >
+    <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
+      {title}
+    </Text>
+  </TouchableOpacity>
+);
+
 const TaskCard = ({ task, navigation }) => {
   const [done, setDone] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const updateTask = useAppStore((state) => state.updateTask);
+  const updatePlant = useAppStore((state) => state.updatePlant); // Renamed to updatePlant for clarity
 
   const handleDone = () => {
     setDone(true);
@@ -37,7 +122,15 @@ const TaskCard = ({ task, navigation }) => {
   };
 
   const handleApprove = () => {
-    updateTask(task.id, { lastWatered: Date.now() });
+    // Determine which date to update based on task type
+    const updateKey =
+      task.type.toLowerCase() === 'water' ? 'lastWatered' : 'lastFertilized';
+      
+    // Use the correct update function which should be specific to the plant
+    // Assuming your useAppStore updateTask logic is actually an updatePlant logic
+    // We pass the plantId and the object of fields to update
+    updatePlant(task.plantId, { [updateKey]: Date.now() }); 
+    
     Animated.timing(slideAnim, {
       toValue: 0,
       duration: 250,
@@ -45,12 +138,13 @@ const TaskCard = ({ task, navigation }) => {
     }).start(() => setDone(false));
   };
 
+  // Calculate days left - logic repeated here for TaskCard display
   const daysLeft = Math.max(
     0,
     task.dayUnit - Math.ceil((Date.now() - task.lastDate) / (1000 * 60 * 60 * 24))
   );
 
-  // 🌿 Type color (blue for water, brown for fertilizing)
+  // Type color (blue for water, brown for fertilizing)
   const typeColor =
     task.type.toLowerCase() === 'water'
       ? '#4A90E2'
@@ -115,63 +209,74 @@ const TaskCard = ({ task, navigation }) => {
   );
 };
 
-const HomeScreen = ({ navigation }) => {
-  const allPlants = useAppStore((state) => state.AllPlants);
+const TasksScreen = ({ navigation }) => {
+  // Use the custom hook to get all the data and handlers
+  const { activeTab, setActiveTab, filteredTasks, hasPlants } = useTaskLogic();
 
-  const tasks = allPlants.flatMap((plant) => [
-    {
-      id: plant.id + '_water',
-      plantId: plant.id,
-      plantName: plant.plantName,
-      plantImage: plant.plantImage,
-      type: 'Water',
-      lastDate: plant.lastWatered,
-      dayUnit: plant.wateringDayUnit,
-    },
-    {
-      id: plant.id + '_fertilize',
-      plantId: plant.id,
-      plantName: plant.plantName,
-      plantImage: plant.plantImage,
-      type: 'Fertilize',
-      lastDate: plant.lastFertilized,
-      dayUnit: plant.fertilizingDayUnit,
-    },
-  ]);
-
-  const orderedTasks = tasks.sort((a, b) => {
-    const aDaysLeft = a.dayUnit - Math.ceil((Date.now() - a.lastDate) / (1000 * 60 * 60 * 24));
-    const bDaysLeft = b.dayUnit - Math.ceil((Date.now() - b.lastDate) / (1000 * 60 * 60 * 24));
-    return aDaysLeft - bDaysLeft;
-  });
+  // Empty State Content
+  const EmptyState = () => (
+    <ImageBackground
+      source={require('../assets/background.png')}
+      style={styles.backgroundImage}
+      imageStyle={{ opacity: 0.6 }}
+      resizeMode="cover"
+    >
+      <View style={styles.emptyStateContainer}>
+        <View style={styles.overlay}>
+          <Text style={styles.title}>Welcome to Plant Care</Text>
+          <Text style={styles.subtitle}>
+            Your personal guide to thriving indoor plants.
+          </Text>
+        </View>
+      </View>
+    </ImageBackground>
+  );
+  
+  // No Tasks Content for a specific tab
+  const NoTasksForTab = () => (
+    <View style={styles.noTasksContainer}>
+      <MaterialIcons name="check" size={40} color={COLORS.gray400} />
+      <Text style={styles.noTasksText}>
+        No {activeTab.toLowerCase()} tasks right now!
+      </Text>
+      <Text style={styles.noTasksSubtext}>
+        {activeTab === TABS.UPCOMING 
+          ? 'All tasks are more than 7 days away.'
+          : 'You don\'t have any plants with a set schedule for this task type.'
+        }
+      </Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.screenContainer}>
-        {orderedTasks.length === 0 ? (
-          <ImageBackground
-            source={require('../assets/background.png')}
-            style={styles.backgroundImage}
-            imageStyle={{ opacity: 0.6 }}
-            resizeMode="cover"
-          >
-            <View style={styles.emptyStateContainer}>
-              <View style={styles.overlay}>
-                <Text style={styles.title}>Welcome to Plant Care</Text>
-                <Text style={styles.subtitle}>
-                  Your personal guide to thriving indoor plants.
-                </Text>
-              </View>
-            </View>
-          </ImageBackground>
+        {!hasPlants ? (
+          <EmptyState />
         ) : (
           <View>
-            <View style={styles.taskTitle}>
-              <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
+            <View style={styles.tabBar}>
+              {Object.values(TABS).map((tabName) => (
+                <TabButton
+                  key={tabName}
+                  title={tabName}
+                  isActive={activeTab === tabName}
+                  onPress={() => setActiveTab(tabName)}
+                />
+              ))}
             </View>
-            {orderedTasks.map((task) => (
-              <TaskCard key={task.id} task={task} navigation={navigation} />
-            ))}
+            
+            <View style={styles.taskTitle}>
+              <Text style={styles.sectionTitle}>{activeTab} Tasks</Text>
+            </View>
+            
+            {filteredTasks.length > 0 ? (
+              filteredTasks.map((task) => (
+                <TaskCard key={task.id} task={task} navigation={navigation} />
+              ))
+            ) : (
+              <NoTasksForTab />
+            )}
           </View>
         )}
       </ScrollView>
@@ -179,12 +284,50 @@ const HomeScreen = ({ navigation }) => {
   );
 };
 
-export default HomeScreen;
+export default TasksScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background || '#F8F9FA' },
   screenContainer: { paddingVertical: 16 },
   sectionTitle: { fontSize: 20, fontWeight: '700', marginBottom: 10, marginLeft: 16 },
+  // --- Tab Bar Styles ---
+  tabBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    marginTop: 0,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 2,
+    paddingVertical: 4,
+  },
+  tabButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  tabButtonActive: {
+    backgroundColor: COLORS.primary || '#5CB85C',
+  },
+  tabButtonText: {
+    color: COLORS.textPrimary || '#222',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  tabButtonTextActive: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  // --- Task Card Styles ---
   taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -238,7 +381,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  backgroundImage: { flex: 1 },
+  // --- Empty State Styles ---
+  backgroundImage: { flex: 1, height: Dimensions.get('window').height - 100 },
   overlay: {
     backgroundColor: 'rgba(255, 255, 255, 0.75)',
     padding: 20,
@@ -258,5 +402,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    minHeight: Dimensions.get('window').height - 100,
+  },
+  // --- No Tasks Specific Style ---
+  noTasksContainer: {
+    alignItems: 'center',
+    padding: 40,
+    marginHorizontal: 16,
+    marginTop: 30,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+  },
+  noTasksText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 15,
+    marginBottom: 5,
+    color: COLORS.gray700,
+  },
+  noTasksSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: COLORS.gray500,
   },
 });

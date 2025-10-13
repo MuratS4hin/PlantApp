@@ -11,6 +11,7 @@ import {
   TouchableWithoutFeedback,
   Image,
 } from "react-native";
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../utils/Constants";
 import { Picker } from "@react-native-picker/picker";
@@ -125,7 +126,12 @@ const AddPlantScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.screenContainer}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.screenContainer}
+        keyboardShouldPersistTaps="handled"
+        extraScrollHeight={20}
+        enableOnAndroid={true}
+      >
         {/* Photo Upload */}
         <TouchableOpacity style={styles.addPhotoContainer} onPress={pickImage}>
           {plantImage ? (
@@ -216,7 +222,7 @@ const AddPlantScreen = ({ route, navigation }) => {
             {editPlant ? "Update" : "Save"}
           </Text>
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Pickers in Modals */}
       <Modal visible={showWateringNumber} transparent animationType="fade">
