@@ -14,8 +14,8 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../utils/Constants';
 import useAppStore from '../store/UseAppStore';
+import { isSummerSeason } from "../utils/Helpers";
 
-// --- Global Constants ---
 const TABS = {
   UPCOMING: 'Upcoming',
   WATERING: 'Watering',
@@ -27,66 +27,65 @@ const useTaskLogic = () => {
   const [activeTab, setActiveTab] = useState(TABS.UPCOMING);
   const hasPlants = allPlants.length > 0;
 
-  // 1. Generate ALL Tasks from all plants
   const allTasks = useMemo(() => {
+    const isSummer = isSummerSeason();
     return allPlants.flatMap((plant) => {
-        // Guard against plants without IDs or names (optional)
-        if (!plant.id) return []; 
-        
-        return [
-          {
-            id: plant.id + '_water',
-            plantId: plant.id,
-            plantName: plant.plantName,
-            plantImage: plant.plantImage,
-            type: 'Water',
-            lastDate: plant.lastWatered,
-            dayUnit: plant.wateringDayUnit,
-          },
-          {
-            id: plant.id + '_fertilize',
-            plantId: plant.id,
-            plantName: plant.plantName,
-            plantImage: plant.plantImage,
-            type: 'Fertilize',
-            lastDate: plant.lastFertilized,
-            dayUnit: plant.fertilizingDayUnit,
-          },
-        ].filter(task => task.dayUnit > 0); // Only include tasks with a set frequency
+      if (!plant.id) return [];
+
+      return [
+        {
+          id: plant.id + "_water",
+          plantId: plant.id,
+          plantName: plant.plantName,
+          plantImage: plant.plantImage,
+          type: "Water",
+          lastDate: plant.lastWatered,
+          isSummer,
+          summerDayUnit: plant.summerWateringDayUnit,
+          winterDayUnit: plant.winterWateringDayUnit,
+        },
+        {
+          id: plant.id + "_fertilize",
+          plantId: plant.id,
+          plantName: plant.plantName,
+          plantImage: plant.plantImage,
+          type: "Fertilize",
+          lastDate: plant.lastFertilized,
+          dayUnit: plant.fertilizingDayUnit,
+        },
+      ]
+        .filter(task => task.type === "Fertilize" ? task.dayUnit > 0 :
+          (task.summerDayUnit > 0 || task.winterDayUnit > 0));
     });
   }, [allPlants]);
-  
-  // Helper to calculate days left
-  const calculateDaysLeft = (task) =>
-    task.dayUnit - Math.ceil((Date.now() - task.lastDate) / (1000 * 60 * 60 * 24));
 
-  // 2. Filter and Sort Tasks based on Active Tab
+  const calculateDaysLeft = (task) => {
+    if (task.type === "Water") {
+      const interval = task.isSummer ? task.summerDayUnit : task.winterDayUnit;
+      return Math.ceil((task.lastDate + interval * 86400000 - Date.now()) / 86400000);
+    }
+
+    // Fertilizer
+    return Math.ceil((task.lastDate + task.dayUnit * 86400000 - Date.now()) / 86400000);
+  };
+
   const filteredTasks = useMemo(() => {
     let tasks = allTasks;
 
-    // Filtering
     if (activeTab === TABS.UPCOMING) {
-      tasks = allTasks.filter((task) => {
-        const daysLeft = calculateDaysLeft(task);
-        // Upcoming: Due in 7 days or less, but not overdue (daysLeft >= 0)
-        return daysLeft <= 7; 
-      });
+      tasks = allTasks.filter((task) => calculateDaysLeft(task) <= 7);
     } else if (activeTab === TABS.WATERING) {
-      tasks = allTasks.filter((task) => task.type === 'Water');
+      tasks = allTasks.filter((task) => task.type === "Water");
     } else if (activeTab === TABS.FERTILIZING) {
-      tasks = allTasks.filter((task) => task.type === 'Fertilize');
+      tasks = allTasks.filter((task) => task.type === "Fertilize");
     }
 
-    // Sorting: Always sort by days left to show the most urgent first
-    return tasks.sort((a, b) => {
-      const aDaysLeft = calculateDaysLeft(a);
-      const bDaysLeft = calculateDaysLeft(b);
-      return aDaysLeft - bDaysLeft;
-    });
+    return tasks.sort((a, b) => calculateDaysLeft(a) - calculateDaysLeft(b));
   }, [allTasks, activeTab]);
 
-  return { activeTab, setActiveTab, filteredTasks, hasPlants };
+  return { activeTab, setActiveTab, filteredTasks, hasPlants, calculateDaysLeft };
 };
+
 
 const TabButton = ({ title, isActive, onPress }) => (
   <TouchableOpacity
@@ -99,10 +98,12 @@ const TabButton = ({ title, isActive, onPress }) => (
   </TouchableOpacity>
 );
 
-const TaskCard = ({ task, navigation }) => {
+const TaskCard = ({ task, navigation, calculateDaysLeft }) => {
   const [done, setDone] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const updatePlant = useAppStore((state) => state.updatePlant); // Renamed to updatePlant for clarity
+
+  const updatePlant = useAppStore((state) => state.updatePlant);
+  const getPlant = useAppStore.getState().getPlant;
 
   const handleDone = () => {
     setDone(true);
@@ -122,15 +123,19 @@ const TaskCard = ({ task, navigation }) => {
   };
 
   const handleApprove = () => {
-    // Determine which date to update based on task type
     const updateKey =
-      task.type.toLowerCase() === 'water' ? 'lastWatered' : 'lastFertilized';
-      
-    // Use the correct update function which should be specific to the plant
-    // Assuming your useAppStore updateTask logic is actually an updatePlant logic
-    // We pass the plantId and the object of fields to update
-    updatePlant(task.plantId, { [updateKey]: Date.now() }); 
-    
+      task.type.toLowerCase() === "water"
+        ? "lastWatered"
+        : "lastFertilized";
+
+    const selectedPlant = getPlant(task.plantId);
+    if (!selectedPlant) return;
+
+    updatePlant({
+      ...selectedPlant,
+      [updateKey]: Date.now(),
+    });
+
     Animated.timing(slideAnim, {
       toValue: 0,
       duration: 250,
@@ -138,29 +143,24 @@ const TaskCard = ({ task, navigation }) => {
     }).start(() => setDone(false));
   };
 
-  // Calculate days left - logic repeated here for TaskCard display
-  const daysLeft = Math.max(
-    0,
-    task.dayUnit - Math.ceil((Date.now() - task.lastDate) / (1000 * 60 * 60 * 24))
-  );
+  const daysLeft = calculateDaysLeft(task);
 
-  // Type color (blue for water, brown for fertilizing)
   const typeColor =
-    task.type.toLowerCase() === 'water'
-      ? '#4A90E2'
-      : task.type.toLowerCase() === 'fertilize'
-      ? '#A66A2D'
-      : COLORS.primary;
+    task.type.toLowerCase() === "water"
+      ? "#4A90E2"
+      : task.type.toLowerCase() === "fertilize"
+        ? "#A66A2D"
+        : COLORS.primary;
 
   return (
-    <View style={{ position: 'relative', marginBottom: 6, marginHorizontal: 12 }}>
+    <View style={{ position: "relative", marginBottom: 6, marginHorizontal: 12 }}>
       {done && (
         <View
           style={{
-            position: 'absolute',
+            position: "absolute",
             right: 12,
-            top: '50%',
-            flexDirection: 'row',
+            top: "50%",
+            flexDirection: "row",
             transform: [{ translateY: -14 }],
             zIndex: 2,
           }}
@@ -169,7 +169,7 @@ const TaskCard = ({ task, navigation }) => {
             <MaterialIcons name="check-circle" size={28} color={COLORS.primary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleCancel} style={{ marginHorizontal: 5 }}>
-            <MaterialIcons name="cancel" size={28} color={COLORS.error || 'red'} />
+            <MaterialIcons name="cancel" size={28} color={COLORS.error || "red"} />
           </TouchableOpacity>
         </View>
       )}
@@ -185,7 +185,7 @@ const TaskCard = ({ task, navigation }) => {
       >
         <TouchableOpacity
           style={styles.taskContent}
-          onPress={() => navigation.navigate('Detail', { plantId: task.plantId })}
+          onPress={() => navigation.navigate("Detail", { plantId: task.plantId })}
         >
           <View style={styles.imageContainer}>
             <Image source={{ uri: task.plantImage }} style={styles.taskImage} />
@@ -194,13 +194,16 @@ const TaskCard = ({ task, navigation }) => {
           <View style={{ flex: 1 }}>
             <Text style={styles.taskPlantName}>{task.plantName}</Text>
             <Text style={[styles.taskDetailText, { color: typeColor }]}>
-              {task.type} in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+              {task.type} in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
             </Text>
           </View>
         </TouchableOpacity>
 
         {!done && (
-          <TouchableOpacity onPress={handleDone} style={[styles.doneButton, { backgroundColor: typeColor }]}>
+          <TouchableOpacity
+            onPress={handleDone}
+            style={[styles.doneButton, { backgroundColor: typeColor }]}
+          >
             <Text style={styles.doneButtonText}>Done</Text>
           </TouchableOpacity>
         )}
@@ -209,11 +212,11 @@ const TaskCard = ({ task, navigation }) => {
   );
 };
 
-const TasksScreen = ({ navigation }) => {
-  // Use the custom hook to get all the data and handlers
-  const { activeTab, setActiveTab, filteredTasks, hasPlants } = useTaskLogic();
 
-  // Empty State Content
+
+const TasksScreen = ({ navigation }) => {
+  const { activeTab, setActiveTab, filteredTasks, hasPlants, calculateDaysLeft } = useTaskLogic(); // ✅ added calculateDaysLeft
+
   const EmptyState = () => (
     <ImageBackground
       source={require('../assets/background.png')}
@@ -231,8 +234,7 @@ const TasksScreen = ({ navigation }) => {
       </View>
     </ImageBackground>
   );
-  
-  // No Tasks Content for a specific tab
+
   const NoTasksForTab = () => (
     <View style={styles.noTasksContainer}>
       <MaterialIcons name="check" size={40} color={COLORS.gray400} />
@@ -240,7 +242,7 @@ const TasksScreen = ({ navigation }) => {
         No {activeTab.toLowerCase()} tasks right now!
       </Text>
       <Text style={styles.noTasksSubtext}>
-        {activeTab === TABS.UPCOMING 
+        {activeTab === TABS.UPCOMING
           ? 'All tasks are more than 7 days away.'
           : 'You don\'t have any plants with a set schedule for this task type.'
         }
@@ -265,14 +267,19 @@ const TasksScreen = ({ navigation }) => {
                 />
               ))}
             </View>
-            
+
             <View style={styles.taskTitle}>
               <Text style={styles.sectionTitle}>{activeTab} Tasks</Text>
             </View>
-            
+
             {filteredTasks.length > 0 ? (
               filteredTasks.map((task) => (
-                <TaskCard key={task.id} task={task} navigation={navigation} />
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  navigation={navigation}
+                  calculateDaysLeft={calculateDaysLeft} // ✅ artık çalışacak
+                />
               ))
             ) : (
               <NoTasksForTab />
@@ -284,13 +291,13 @@ const TasksScreen = ({ navigation }) => {
   );
 };
 
+
 export default TasksScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background || '#F8F9FA' },
   screenContainer: { paddingVertical: 16 },
   sectionTitle: { fontSize: 20, fontWeight: '700', marginBottom: 10, marginLeft: 16 },
-  // --- Tab Bar Styles ---
   tabBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -327,7 +334,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: '700',
   },
-  // --- Task Card Styles ---
   taskCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -381,7 +387,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  // --- Empty State Styles ---
   backgroundImage: { flex: 1, height: Dimensions.get('window').height - 100 },
   overlay: {
     backgroundColor: 'rgba(255, 255, 255, 0.75)',
@@ -404,7 +409,6 @@ const styles = StyleSheet.create({
     padding: 20,
     minHeight: Dimensions.get('window').height - 100,
   },
-  // --- No Tasks Specific Style ---
   noTasksContainer: {
     alignItems: 'center',
     padding: 40,

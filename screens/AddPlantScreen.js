@@ -6,17 +6,17 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
+  Image,
   Modal,
   TouchableWithoutFeedback,
-  Image,
 } from "react-native";
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { MaterialIcons } from "@expo/vector-icons";
 import { COLORS } from "../utils/Constants";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import useAppStore from "../store/UseAppStore";
+import { isSummerSeason } from "../utils/Helpers";
 
 const AddPlantScreen = ({ route, navigation }) => {
   const addPlant = useAppStore((state) => state.addPlant);
@@ -24,26 +24,26 @@ const AddPlantScreen = ({ route, navigation }) => {
 
   const editPlant = route?.params?.plant || null; // Edit mode if plant exists
 
+  // Plant basic info
   const [plantName, setPlantName] = useState("");
   const [plantType, setPlantType] = useState("");
   const [careNotes, setCareNotes] = useState("");
   const [plantImage, setPlantImage] = useState(null);
 
   // Watering
-  const [wateringNumber, setWateringNumber] = useState("0");
-  const [wateringUnit, setWateringUnit] = useState("days");
-  const [showWateringNumber, setShowWateringNumber] = useState(false);
-  const [showWateringUnit, setShowWateringUnit] = useState(false);
+  const [summerWateringNumber, setSummerWateringNumber] = useState("0");
+  const [summerWateringUnit, setSummerWateringUnit] = useState("days");
+  const [winterWateringNumber, setWinterWateringNumber] = useState("0");
+  const [winterWateringUnit, setWinterWateringUnit] = useState("days");
+
+  const [activePicker, setActivePicker] = useState(null); // "summerNumber", "summerUnit", "winterNumber", "winterUnit", "fertNumber", "fertUnit", "sunlight"
 
   // Fertilizing
   const [fertilizingNumber, setFertilizingNumber] = useState("0");
   const [fertilizingUnit, setFertilizingUnit] = useState("months");
-  const [showFertilizingNumber, setShowFertilizingNumber] = useState(false);
-  const [showFertilizingUnit, setShowFertilizingUnit] = useState(false);
 
   // Sunlight
   const [sunlightValue, setSunlightValue] = useState("low");
-  const [showSunlight, setShowSunlight] = useState(false);
 
   const numbers = Array.from({ length: 61 }, (_, i) => `${i}`);
   const timeUnits = ["days", "weeks", "months"];
@@ -56,16 +56,24 @@ const AddPlantScreen = ({ route, navigation }) => {
       setPlantType(editPlant.plantType);
       setCareNotes(editPlant.careNotes);
       setPlantImage(editPlant.plantImage);
-      setWateringNumber(String(editPlant.wateringNumber));
-      setWateringUnit(editPlant.wateringUnit);
+
+      setSummerWateringNumber(String(editPlant.summerWateringNumber));
+      setSummerWateringUnit(editPlant.summerWateringUnit);
+      setWinterWateringNumber(String(editPlant.winterWateringNumber));
+      setWinterWateringUnit(editPlant.winterWateringUnit);
+
       setFertilizingNumber(String(editPlant.fertilizingNumber));
       setFertilizingUnit(editPlant.fertilizingUnit);
+
       setSunlightValue(editPlant.sunlight);
     }
   }, [editPlant]);
 
-  const renderPickerField = (label, value, onPress) => (
-    <TouchableOpacity style={styles.dropdownField} onPress={onPress}>
+  const renderPickerField = (label, value, pickerKey) => (
+    <TouchableOpacity
+      style={styles.dropdownField}
+      onPress={() => setActivePicker(pickerKey)}
+    >
       <Text style={{ color: value ? COLORS.textPrimary : COLORS.textSecondary }}>
         {value || label}
       </Text>
@@ -74,8 +82,7 @@ const AddPlantScreen = ({ route, navigation }) => {
   );
 
   const pickImage = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       alert("Permission required to access photos!");
       return;
@@ -92,23 +99,38 @@ const AddPlantScreen = ({ route, navigation }) => {
   };
 
   const handleSave = () => {
+    const isSummer = isSummerSeason();
+
     const plantData = {
       id: editPlant ? editPlant.id : Date.now(),
       plantName,
       plantType,
       plantImage,
-      wateringNumber,
-      wateringUnit,
-      wateringDayUnit:
-        wateringNumber *
-        (wateringUnit === "weeks" ? 7 : wateringUnit === "months" ? 30 : 1),
+      careNotes,
       sunlight: sunlightValue,
+
+      // Seasonal Watering
+      isSummer,
+      summerWateringNumber,
+      summerWateringUnit,
+      summerWateringDayUnit:
+        summerWateringNumber *
+        (summerWateringUnit === "weeks" ? 7 : summerWateringUnit === "months" ? 30 : 1),
+
+      winterWateringNumber,
+      winterWateringUnit,
+      winterWateringDayUnit:
+        winterWateringNumber *
+        (winterWateringUnit === "weeks" ? 7 : winterWateringUnit === "months" ? 30 : 1),
+
+      // Fertilizing
       fertilizingNumber,
       fertilizingUnit,
       fertilizingDayUnit:
         fertilizingNumber *
         (fertilizingUnit === "weeks" ? 7 : fertilizingUnit === "months" ? 30 : 1),
-      careNotes,
+
+      // Last Actions
       lastWatered: editPlant ? editPlant.lastWatered : Date.now(),
       lastFertilized: editPlant ? editPlant.lastFertilized : Date.now(),
     };
@@ -122,6 +144,77 @@ const AddPlantScreen = ({ route, navigation }) => {
     }
 
     navigation.goBack();
+  };
+
+  const renderModalPicker = () => {
+    if (!activePicker) return null;
+
+    let selectedValue, setValue, items;
+    switch (activePicker) {
+      case "summerNumber":
+        selectedValue = summerWateringNumber;
+        setValue = setSummerWateringNumber;
+        items = numbers;
+        break;
+      case "summerUnit":
+        selectedValue = summerWateringUnit;
+        setValue = setSummerWateringUnit;
+        items = timeUnits;
+        break;
+      case "winterNumber":
+        selectedValue = winterWateringNumber;
+        setValue = setWinterWateringNumber;
+        items = numbers;
+        break;
+      case "winterUnit":
+        selectedValue = winterWateringUnit;
+        setValue = setWinterWateringUnit;
+        items = timeUnits;
+        break;
+      case "fertNumber":
+        selectedValue = fertilizingNumber;
+        setValue = setFertilizingNumber;
+        items = numbers;
+        break;
+      case "fertUnit":
+        selectedValue = fertilizingUnit;
+        setValue = setFertilizingUnit;
+        items = timeUnits;
+        break;
+      case "sunlight":
+        selectedValue = sunlightValue;
+        setValue = setSunlightValue;
+        items = sunlightItems;
+        break;
+      default:
+        return null;
+    }
+
+    return (
+      <Modal visible={true} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <TouchableWithoutFeedback onPress={() => setActivePicker(null)}>
+            <View style={styles.overlay} />
+          </TouchableWithoutFeedback>
+          <View style={styles.modalBox}>
+            <Picker
+              selectedValue={selectedValue}
+              onValueChange={(val) => setValue(val)}
+            >
+              {items.map((item) => (
+                <Picker.Item key={item} label={item} value={item} color="black" />
+              ))}
+            </Picker>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setActivePicker(null)}
+            >
+              <Text style={styles.modalButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   return (
@@ -172,35 +265,31 @@ const AddPlantScreen = ({ route, navigation }) => {
 
         {/* Watering */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Watering</Text>
+          <Text style={styles.label}>Summer Watering</Text>
           <View style={styles.inlineRow}>
-            {renderPickerField("Number", wateringNumber, () =>
-              setShowWateringNumber(true)
-            )}
-            {renderPickerField("Unit", wateringUnit, () =>
-              setShowWateringUnit(true)
-            )}
+            {renderPickerField("Number", summerWateringNumber, "summerNumber")}
+            {renderPickerField("Unit", summerWateringUnit, "summerUnit")}
+          </View>
+
+          <Text style={[styles.label, { marginTop: 10 }]}>Winter Watering</Text>
+          <View style={styles.inlineRow}>
+            {renderPickerField("Number", winterWateringNumber, "winterNumber")}
+            {renderPickerField("Unit", winterWateringUnit, "winterUnit")}
           </View>
         </View>
 
         {/* Sunlight */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Sunlight</Text>
-          {renderPickerField("Select sunlight", sunlightValue, () =>
-            setShowSunlight(true)
-          )}
+          {renderPickerField("Select sunlight", sunlightValue, "sunlight")}
         </View>
 
         {/* Fertilizing */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Fertilizing</Text>
           <View style={styles.inlineRow}>
-            {renderPickerField("Number", fertilizingNumber, () =>
-              setShowFertilizingNumber(true)
-            )}
-            {renderPickerField("Unit", fertilizingUnit, () =>
-              setShowFertilizingUnit(true)
-            )}
+            {renderPickerField("Number", fertilizingNumber, "fertNumber")}
+            {renderPickerField("Unit", fertilizingUnit, "fertUnit")}
           </View>
         </View>
 
@@ -224,132 +313,7 @@ const AddPlantScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </KeyboardAwareScrollView>
 
-      {/* Pickers in Modals */}
-      <Modal visible={showWateringNumber} transparent animationType="fade">
-        <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback
-            onPress={() => setShowWateringNumber(false)}
-          >
-            <View style={styles.overlay} />
-          </TouchableWithoutFeedback>
-          <View style={styles.modalBox}>
-            <Picker
-              selectedValue={wateringNumber}
-              onValueChange={(val) => setWateringNumber(val)}
-            >
-              {numbers.map((num) => (
-                <Picker.Item key={num} label={num} value={num} color="black" />
-              ))}
-            </Picker>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setShowWateringNumber(false)}
-            >
-              <Text style={styles.modalButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showWateringUnit} transparent animationType="fade">
-        <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback onPress={() => setShowWateringUnit(false)}>
-            <View style={styles.overlay} />
-          </TouchableWithoutFeedback>
-          <View style={styles.modalBox}>
-            <Picker
-              selectedValue={wateringUnit}
-              onValueChange={(val) => setWateringUnit(val)}
-            >
-              {timeUnits.map((unit) => (
-                <Picker.Item key={unit} label={unit} value={unit} color="black" />
-              ))}
-            </Picker>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setShowWateringUnit(false)}
-            >
-              <Text style={styles.modalButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showSunlight} transparent animationType="fade">
-        <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback onPress={() => setShowSunlight(false)}>
-            <View style={styles.overlay} />
-          </TouchableWithoutFeedback>
-          <View style={styles.modalBox}>
-            <Picker
-              selectedValue={sunlightValue}
-              onValueChange={(val) => setSunlightValue(val)}
-            >
-              {sunlightItems.map((item) => (
-                <Picker.Item key={item} label={item} value={item} color="black" />
-              ))}
-            </Picker>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setShowSunlight(false)}
-            >
-              <Text style={styles.modalButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showFertilizingNumber} transparent animationType="fade">
-        <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback
-            onPress={() => setShowFertilizingNumber(false)}
-          >
-            <View style={styles.overlay} />
-          </TouchableWithoutFeedback>
-          <View style={styles.modalBox}>
-            <Picker
-              selectedValue={fertilizingNumber}
-              onValueChange={(val) => setFertilizingNumber(val)}
-            >
-              {numbers.map((num) => (
-                <Picker.Item key={num} label={num} value={num} color="black" />
-              ))}
-            </Picker>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setShowFertilizingNumber(false)}
-            >
-              <Text style={styles.modalButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showFertilizingUnit} transparent animationType="fade">
-        <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback
-            onPress={() => setShowFertilizingUnit(false)}
-          >
-            <View style={styles.overlay} />
-          </TouchableWithoutFeedback>
-          <View style={styles.modalBox}>
-            <Picker
-              selectedValue={fertilizingUnit}
-              onValueChange={(val) => setFertilizingUnit(val)}
-            >
-              {timeUnits.map((unit) => (
-                <Picker.Item key={unit} label={unit} value={unit} color="black" />
-              ))}
-            </Picker>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setShowFertilizingUnit(false)}
-            >
-              <Text style={styles.modalButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {renderModalPicker()}
     </SafeAreaView>
   );
 };

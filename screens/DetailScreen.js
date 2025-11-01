@@ -30,6 +30,19 @@ const DetailScreen = ({ navigation, route }) => {
     );
   };
 
+  const getUnitLabel = (unit) => {
+    switch (unit) {
+      case 'days':
+        return 'd';
+      case 'weeks':
+        return 'w';
+      case 'months':
+        return 'm';
+      default:
+        return unit;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.detailHeader}>
@@ -60,18 +73,26 @@ const DetailScreen = ({ navigation, route }) => {
         <View style={{ paddingHorizontal: 16 }}>
           <Text style={styles.sectionTitle}>Care Schedule</Text>
           <View style={styles.careGrid}>
+            {/* Watering */}
             <View style={styles.careItem}>
               <MaterialIcons name="water-drop" size={30} color={COLORS.green700} />
               <Text style={styles.careItemTitle}>Watering</Text>
               <Text style={styles.careItemSubtitle}>
-                Every {plant.wateringNumber} {plant.wateringUnit}
+                Summer: {plant.summerWateringNumber} {getUnitLabel(plant.summerWateringUnit)}
+              </Text>
+              <Text style={styles.careItemSubtitle}>
+                Winter: {plant.winterWateringNumber} {getUnitLabel(plant.summerWateringUnit)}
               </Text>
             </View>
+
+            {/* Sunlight */}
             <View style={styles.careItem}>
               <MaterialIcons name="wb-sunny" size={30} color={COLORS.green700} />
               <Text style={styles.careItemTitle}>Sunlight</Text>
               <Text style={styles.careItemSubtitle}>{plant.sunlight}</Text>
             </View>
+
+            {/* Fertilizing */}
             <View style={styles.careItem}>
               <MaterialIcons name="science" size={30} color={COLORS.green700} />
               <Text style={styles.careItemTitle}>Fertilizing</Text>
