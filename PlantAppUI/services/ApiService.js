@@ -1,4 +1,4 @@
-const BASE_URL = 'http://192.168.0.11:5001/api';
+const BASE_URL = 'http://<your-ip-address>:5001/api';
 
 export default class ApiService {
   static token = null; // Optional: token for auth
@@ -60,8 +60,9 @@ export default class ApiService {
     return this.request(endpoint, 'DELETE');
   }
 
-  static getPlants() {
-    return this.get('plants');
+  static getPlants(userId) {
+    const endpoint = userId ? `plants?userId=${userId}` : 'plants';
+    return this.get(endpoint);
   }
 
   static createPlant(plant) {
@@ -74,5 +75,17 @@ export default class ApiService {
 
   static deletePlant(id) {
     return this.delete(`plants/${id}`);
+  }
+
+  static login(credentials) {
+    return this.post('auth/login', credentials);
+  }
+
+  static register(payload) {
+    return this.post('auth/register', payload);
+  }
+
+  static updateProfile(payload) {
+    return this.put('auth/profile', payload);
   }
 }

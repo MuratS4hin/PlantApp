@@ -3,6 +3,7 @@ namespace PlantAppBE.Models
     public class Plant
     {
         public int Id { get; set; }
+        public int? UserId { get; set; }
         public string PlantName { get; set; } = string.Empty;
         public string? PlantType { get; set; }
         public byte[]? PlantImage { get; set; }

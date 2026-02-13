@@ -14,9 +14,9 @@ namespace PlantAppBE.Workflow
             _database = database;
         }
 
-        public async Task<List<Plant>> GetPlantsAsync()
+        public async Task<List<Plant>> GetPlantsAsync(int? userId = null)
         {
-            return await _database.GetPlantsAsync();
+            return await _database.GetPlantsAsync(userId);
         }
 
         public async Task<Plant> CreatePlantAsync(Plant plant)

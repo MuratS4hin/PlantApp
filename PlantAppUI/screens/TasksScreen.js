@@ -25,6 +25,7 @@ const TABS = {
 
 const useTaskLogic = () => {
   const allPlants = useAppStore((state) => state.AllPlants);
+  const authUser = useAppStore((state) => state.authUser);
   const [activeTab, setActiveTab] = useState(TABS.UPCOMING);
   const hasPlants = allPlants.length > 0;
   const setPlants = useAppStore((state) => state.setPlants);
@@ -32,7 +33,7 @@ const useTaskLogic = () => {
   useEffect(() => {
     const loadPlants = async () => {
       try {
-        const plants = await ApiService.getPlants();
+        const plants = await ApiService.getPlants(authUser?.id);
         setPlants(plants);
       } catch (error) {
         console.error('Failed to load plants:', error);
@@ -40,7 +41,7 @@ const useTaskLogic = () => {
     };
 
     loadPlants();
-  }, [setPlants]);
+  }, [setPlants, authUser]);
 
   const allTasks = useMemo(() => {
     const isSummer = isSummerSeason();

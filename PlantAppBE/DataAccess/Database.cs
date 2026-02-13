@@ -20,14 +20,33 @@ namespace PlantAppBE.DataAccess
         private string ConnectionString =>
             $"Host={_settings.Host};Port={_settings.Port};Database={_settings.Database};Username={_settings.Username};Password={_settings.Password}";
 
+        #region Create
         public async Task EnsureCreatedAsync()
         {
             await using var connection = new NpgsqlConnection(ConnectionString);
             await connection.OpenAsync();
 
-            const string createTableSql = @"
+            const string createUsersSql = @"
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    password_salt BYTEA NOT NULL,
+                    created_at BIGINT NOT NULL,
+                    full_name TEXT,
+                    phone_number TEXT,
+                    location TEXT,
+                    bio TEXT
+                );";
+
+            const string createUsersIndexSql = @"
+                CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_idx
+                ON users (LOWER(email));";
+
+            const string createPlantsSql = @"
                 CREATE TABLE IF NOT EXISTS plants (
                     id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                     plant_name TEXT NOT NULL,
                     plant_type TEXT,
                     plant_image BYTEA,
@@ -48,92 +67,47 @@ namespace PlantAppBE.DataAccess
                     last_fertilized BIGINT NOT NULL DEFAULT 0
                 );";
 
-            const string migrateImageSql = @"
-                ALTER TABLE plants
-                ADD COLUMN IF NOT EXISTS plant_image_mime TEXT;
+            await using var createUsersCommand = new NpgsqlCommand(createUsersSql, connection);
+            await createUsersCommand.ExecuteNonQueryAsync();
 
-                DO $$
-                BEGIN
-                    IF EXISTS (
-                        SELECT 1
-                        FROM information_schema.columns
-                        WHERE table_name = 'plants'
-                          AND column_name = 'plant_image'
-                          AND data_type <> 'bytea'
-                    ) THEN
-                        ALTER TABLE plants
-                        ALTER COLUMN plant_image TYPE BYTEA
-                        USING NULL;
-                    END IF;
-                END $$;";
+            await using var createUsersIndexCommand = new NpgsqlCommand(createUsersIndexSql, connection);
+            await createUsersIndexCommand.ExecuteNonQueryAsync();
 
-            await using var command = new NpgsqlCommand(createTableSql, connection);
-            await command.ExecuteNonQueryAsync();
-
-            await using var migrateCommand = new NpgsqlCommand(migrateImageSql, connection);
-            await migrateCommand.ExecuteNonQueryAsync();
+            await using var createPlantsCommand = new NpgsqlCommand(createPlantsSql, connection);
+            await createPlantsCommand.ExecuteNonQueryAsync();
         }
 
-        public async Task<List<Plant>> GetPlantsAsync()
+        public async Task<User> CreateUserAsync(User user)
         {
-            var plants = new List<Plant>();
-
             await using var connection = new NpgsqlConnection(ConnectionString);
             await connection.OpenAsync();
 
-            const string querySql = @"
-                SELECT id,
-                       plant_name,
-                       plant_type,
-                       plant_image,
-                       plant_image_mime,
-                       care_notes,
-                       sunlight,
-                       is_summer,
-                       summer_watering_number,
-                       summer_watering_unit,
-                       summer_watering_day_unit,
-                       winter_watering_number,
-                       winter_watering_unit,
-                       winter_watering_day_unit,
-                       fertilizing_number,
-                       fertilizing_unit,
-                       fertilizing_day_unit,
-                       last_watered,
-                       last_fertilized
-                FROM plants
-                ORDER BY id;";
+            const string insertSql = @"
+                INSERT INTO users (
+                    email,
+                    password_hash,
+                    password_salt,
+                    created_at
+                )
+                VALUES (
+                    @email,
+                    @password_hash,
+                    @password_salt,
+                    @created_at
+                )
+                RETURNING id;";
 
-            await using var command = new NpgsqlCommand(querySql, connection);
-            await using var reader = await command.ExecuteReaderAsync();
+            await using var command = new NpgsqlCommand(insertSql, connection);
+            command.Parameters.AddWithValue("email", user.Email);
+            command.Parameters.AddWithValue("password_hash", user.PasswordHash);
+            var saltParam = command.Parameters.Add("password_salt", NpgsqlDbType.Bytea);
+            saltParam.Value = user.PasswordSalt;
+            command.Parameters.AddWithValue("created_at", user.CreatedAt);
 
-            while (await reader.ReadAsync())
-            {
-                plants.Add(new Plant
-                {
-                    Id = reader.GetInt32(0),
-                    PlantName = reader.GetString(1),
-                    PlantType = reader.IsDBNull(2) ? null : reader.GetString(2),
-                    PlantImage = reader.IsDBNull(3) ? null : reader.GetFieldValue<byte[]>(3),
-                    PlantImageMimeType = reader.IsDBNull(4) ? null : reader.GetString(4),
-                    CareNotes = reader.IsDBNull(5) ? null : reader.GetString(5),
-                    Sunlight = reader.IsDBNull(6) ? null : reader.GetString(6),
-                    IsSummer = reader.GetBoolean(7),
-                    SummerWateringNumber = reader.GetInt32(8),
-                    SummerWateringUnit = reader.IsDBNull(9) ? null : reader.GetString(9),
-                    SummerWateringDayUnit = reader.GetInt32(10),
-                    WinterWateringNumber = reader.GetInt32(11),
-                    WinterWateringUnit = reader.IsDBNull(12) ? null : reader.GetString(12),
-                    WinterWateringDayUnit = reader.GetInt32(13),
-                    FertilizingNumber = reader.GetInt32(14),
-                    FertilizingUnit = reader.IsDBNull(15) ? null : reader.GetString(15),
-                    FertilizingDayUnit = reader.GetInt32(16),
-                    LastWatered = reader.GetInt64(17),
-                    LastFertilized = reader.GetInt64(18)
-                });
-            }
+            var newId = (int)(await command.ExecuteScalarAsync());
+            user.Id = newId;
 
-            return plants;
+            return user;
         }
 
         public async Task<Plant> CreatePlantAsync(Plant plant)
@@ -143,6 +117,7 @@ namespace PlantAppBE.DataAccess
 
             const string insertSql = @"
                 INSERT INTO plants (
+                    user_id,
                     plant_name,
                     plant_type,
                     plant_image,
@@ -163,6 +138,7 @@ namespace PlantAppBE.DataAccess
                     last_fertilized
                 )
                 VALUES (
+                    @user_id,
                     @plant_name,
                     @plant_type,
                     @plant_image,
@@ -185,6 +161,7 @@ namespace PlantAppBE.DataAccess
                 RETURNING id;";
 
             await using var command = new NpgsqlCommand(insertSql, connection);
+            command.Parameters.AddWithValue("user_id", (object?)plant.UserId ?? DBNull.Value);
             command.Parameters.AddWithValue("plant_name", plant.PlantName);
             command.Parameters.AddWithValue("plant_type", (object?)plant.PlantType ?? DBNull.Value);
             var imageParam = command.Parameters.Add("plant_image", NpgsqlDbType.Bytea);
@@ -210,6 +187,199 @@ namespace PlantAppBE.DataAccess
 
             return plant;
         }
+        #endregion
+
+        #region Read
+        public async Task<User?> GetUserByEmailAsync(string email)
+        {
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            const string querySql = @"
+                SELECT id,
+                       email,
+                       password_hash,
+                       password_salt,
+                      created_at,
+                      full_name,
+                      phone_number,
+                      location,
+                      bio
+                FROM users
+                WHERE LOWER(email) = LOWER(@email)
+                LIMIT 1;";
+
+            await using var command = new NpgsqlCommand(querySql, connection);
+            command.Parameters.AddWithValue("email", email);
+
+            await using var reader = await command.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
+            {
+                return null;
+            }
+
+            return new User
+            {
+                Id = reader.GetInt32(0),
+                Email = reader.GetString(1),
+                PasswordHash = reader.GetString(2),
+                PasswordSalt = reader.GetFieldValue<byte[]>(3),
+                CreatedAt = reader.GetInt64(4),
+                FullName = reader.IsDBNull(5) ? null : reader.GetString(5),
+                PhoneNumber = reader.IsDBNull(6) ? null : reader.GetString(6),
+                Location = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Bio = reader.IsDBNull(8) ? null : reader.GetString(8)
+            };
+        }
+
+        public async Task<User?> GetUserByIdAsync(int id)
+        {
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            const string querySql = @"
+                SELECT id,
+                       email,
+                       password_hash,
+                       password_salt,
+                       created_at,
+                       full_name,
+                       phone_number,
+                       location,
+                       bio
+                FROM users
+                WHERE id = @id
+                LIMIT 1;";
+
+            await using var command = new NpgsqlCommand(querySql, connection);
+            command.Parameters.AddWithValue("id", id);
+
+            await using var reader = await command.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
+            {
+                return null;
+            }
+
+            return new User
+            {
+                Id = reader.GetInt32(0),
+                Email = reader.GetString(1),
+                PasswordHash = reader.GetString(2),
+                PasswordSalt = reader.GetFieldValue<byte[]>(3),
+                CreatedAt = reader.GetInt64(4),
+                FullName = reader.IsDBNull(5) ? null : reader.GetString(5),
+                PhoneNumber = reader.IsDBNull(6) ? null : reader.GetString(6),
+                Location = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Bio = reader.IsDBNull(8) ? null : reader.GetString(8)
+            };
+        }
+
+        public async Task<List<Plant>> GetPlantsAsync(int? userId = null)
+        {
+            var plants = new List<Plant>();
+
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            var querySql = @"
+                SELECT id,
+                       user_id,
+                       plant_name,
+                       plant_type,
+                       plant_image,
+                       plant_image_mime,
+                       care_notes,
+                       sunlight,
+                       is_summer,
+                       summer_watering_number,
+                       summer_watering_unit,
+                       summer_watering_day_unit,
+                       winter_watering_number,
+                       winter_watering_unit,
+                       winter_watering_day_unit,
+                       fertilizing_number,
+                       fertilizing_unit,
+                       fertilizing_day_unit,
+                       last_watered,
+                       last_fertilized
+                FROM plants";
+
+            if (userId.HasValue)
+            {
+                querySql += " WHERE user_id = @user_id";
+            }
+
+            querySql += " ORDER BY id;";
+
+            await using var command = new NpgsqlCommand(querySql, connection);
+            if (userId.HasValue)
+            {
+                command.Parameters.AddWithValue("user_id", userId.Value);
+            }
+
+            await using var reader = await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                plants.Add(new Plant
+                {
+                    Id = reader.GetInt32(0),
+                    UserId = reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                    PlantName = reader.GetString(2),
+                    PlantType = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    PlantImage = reader.IsDBNull(4) ? null : reader.GetFieldValue<byte[]>(4),
+                    PlantImageMimeType = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    CareNotes = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    Sunlight = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    IsSummer = reader.GetBoolean(8),
+                    SummerWateringNumber = reader.GetInt32(9),
+                    SummerWateringUnit = reader.IsDBNull(10) ? null : reader.GetString(10),
+                    SummerWateringDayUnit = reader.GetInt32(11),
+                    WinterWateringNumber = reader.GetInt32(12),
+                    WinterWateringUnit = reader.IsDBNull(13) ? null : reader.GetString(13),
+                    WinterWateringDayUnit = reader.GetInt32(14),
+                    FertilizingNumber = reader.GetInt32(15),
+                    FertilizingUnit = reader.IsDBNull(16) ? null : reader.GetString(16),
+                    FertilizingDayUnit = reader.GetInt32(17),
+                    LastWatered = reader.GetInt64(18),
+                    LastFertilized = reader.GetInt64(19)
+                });
+            }
+
+            return plants;
+        }
+        #endregion
+
+        #region Update
+        public async Task<User?> UpdateUserProfileAsync(int id, string? fullName, string? phoneNumber, string? location, string? bio)
+        {
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            const string updateSql = @"
+                UPDATE users
+                SET full_name = @full_name,
+                    phone_number = @phone_number,
+                    location = @location,
+                    bio = @bio
+                WHERE id = @id
+                RETURNING id;";
+
+            await using var command = new NpgsqlCommand(updateSql, connection);
+            command.Parameters.AddWithValue("id", id);
+            command.Parameters.AddWithValue("full_name", (object?)fullName ?? DBNull.Value);
+            command.Parameters.AddWithValue("phone_number", (object?)phoneNumber ?? DBNull.Value);
+            command.Parameters.AddWithValue("location", (object?)location ?? DBNull.Value);
+            command.Parameters.AddWithValue("bio", (object?)bio ?? DBNull.Value);
+
+            var result = await command.ExecuteScalarAsync();
+            if (result == null)
+            {
+                return null;
+            }
+
+            return await GetUserByIdAsync(id);
+        }
 
         public async Task<Plant?> UpdatePlantAsync(int id, Plant plant)
         {
@@ -218,7 +388,8 @@ namespace PlantAppBE.DataAccess
 
             const string updateSql = @"
                 UPDATE plants
-                SET plant_name = @plant_name,
+                SET user_id = @user_id,
+                    plant_name = @plant_name,
                     plant_type = @plant_type,
                     plant_image = @plant_image,
                     plant_image_mime = @plant_image_mime,
@@ -241,6 +412,7 @@ namespace PlantAppBE.DataAccess
 
             await using var command = new NpgsqlCommand(updateSql, connection);
             command.Parameters.AddWithValue("id", id);
+            command.Parameters.AddWithValue("user_id", (object?)plant.UserId ?? DBNull.Value);
             command.Parameters.AddWithValue("plant_name", plant.PlantName);
             command.Parameters.AddWithValue("plant_type", (object?)plant.PlantType ?? DBNull.Value);
             var updateImageParam = command.Parameters.Add("plant_image", NpgsqlDbType.Bytea);
@@ -270,7 +442,9 @@ namespace PlantAppBE.DataAccess
             plant.Id = id;
             return plant;
         }
+        #endregion
 
+        #region Delete
         public async Task<bool> DeletePlantAsync(int id)
         {
             await using var connection = new NpgsqlConnection(ConnectionString);
@@ -286,5 +460,6 @@ namespace PlantAppBE.DataAccess
             var affected = await command.ExecuteNonQueryAsync();
             return affected > 0;
         }
+        #endregion
     }
 }

@@ -6,6 +6,7 @@ const useAppStore = create(
   persist(
     (set, get) => ({
       AllPlants: [],
+      authUser: null,
 
       // Get a plant by ID
       getPlant: (id) => {
@@ -38,11 +39,14 @@ const useAppStore = create(
 
       // Clear all plants
       clearPlants: () => set({ AllPlants: [] }),
+
+      setAuthUser: (user) => set({ authUser: user }),
+      clearAuth: () => set({ authUser: null }),
     }),
     {
       name: "plants-storage",
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ AllPlants: state.AllPlants }),
+      partialize: (state) => ({ AllPlants: state.AllPlants, authUser: state.authUser }),
     }
   )
 );

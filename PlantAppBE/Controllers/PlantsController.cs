@@ -18,9 +18,9 @@ namespace PlantAppBE.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<Plant>>> GetPlants()
+        public async Task<ActionResult<List<Plant>>> GetPlants([FromQuery] int? userId = null)
         {
-            var plants = await _workflow.GetPlantsAsync();
+            var plants = await _workflow.GetPlantsAsync(userId);
             return plants;
         }
 

@@ -23,6 +23,7 @@ namespace PlantAppBE
             services.Configure<DatabaseSettings>(Configuration.GetSection("Database"));
             services.AddSingleton<Database>();
             services.AddScoped<IPlantWorkflow, PlantWorkflow>();
+            services.AddScoped<IAuthWorkflow, AuthWorkflow>();
 
             // Add CORS to allow React Native app requests
             services.AddCors(options =>

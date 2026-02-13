@@ -22,6 +22,7 @@ import ApiService from "../services/ApiService";
 const AddPlantScreen = ({ route, navigation }) => {
   const addPlant = useAppStore((state) => state.addPlant);
   const updatePlant = useAppStore((state) => state.updatePlant);
+  const authUser = useAppStore((state) => state.authUser);
 
   const editPlant = route?.params?.plant || null; // Edit mode if plant exists
 
@@ -123,6 +124,7 @@ const AddPlantScreen = ({ route, navigation }) => {
 
     const plantData = {
       id: editPlant ? editPlant.id : undefined,
+      userId: authUser?.id || null,
       plantName,
       plantType,
       plantImage,

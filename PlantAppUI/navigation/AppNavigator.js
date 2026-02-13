@@ -45,12 +45,12 @@ function MainStackNavigator() {
           //     iconName="menu-outline"
           //   />
           // ),
-          // headerRight: () => (
-          //   <HeaderIcon
-          //     onPress={() => navigation.navigate('ProfileScreen')}
-          //     iconName="person-circle-outline"
-          //   />
-          // ),
+          headerRight: () => (
+            <HeaderIcon
+              onPress={() => navigation.navigate('ProfileScreen')}
+              iconName="person-circle-outline"
+            />
+          ),
         })}
       />
 

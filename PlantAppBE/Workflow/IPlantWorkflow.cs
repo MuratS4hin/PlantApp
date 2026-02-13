@@ -6,7 +6,7 @@ namespace PlantAppBE.Workflow
 {
     public interface IPlantWorkflow
     {
-        Task<List<Plant>> GetPlantsAsync();
+        Task<List<Plant>> GetPlantsAsync(int? userId = null);
         Task<Plant> CreatePlantAsync(Plant plant);
         Task<Plant?> UpdatePlantAsync(int id, Plant plant);
         Task<bool> DeletePlantAsync(int id);
