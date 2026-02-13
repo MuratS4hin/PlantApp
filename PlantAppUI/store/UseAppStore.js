@@ -19,6 +19,9 @@ const useAppStore = create(
           AllPlants: [...state.AllPlants, plant],
         })),
 
+      // Replace all plants (sync from backend)
+      setPlants: (plants) => set({ AllPlants: plants }),
+
       // Update a plant by ID
       updatePlant: (updatedPlant) =>
         set((state) => ({

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
@@ -14,7 +14,8 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../utils/Constants';
 import useAppStore from '../store/UseAppStore';
-import { isSummerSeason } from "../utils/Helpers";
+import { buildImageUri, isSummerSeason } from "../utils/Helpers";
+import ApiService from '../services/ApiService';
 
 const TABS = {
   UPCOMING: 'Upcoming',
@@ -26,6 +27,20 @@ const useTaskLogic = () => {
   const allPlants = useAppStore((state) => state.AllPlants);
   const [activeTab, setActiveTab] = useState(TABS.UPCOMING);
   const hasPlants = allPlants.length > 0;
+  const setPlants = useAppStore((state) => state.setPlants);
+
+  useEffect(() => {
+    const loadPlants = async () => {
+      try {
+        const plants = await ApiService.getPlants();
+        setPlants(plants);
+      } catch (error) {
+        console.error('Failed to load plants:', error);
+      }
+    };
+
+    loadPlants();
+  }, [setPlants]);
 
   const allTasks = useMemo(() => {
     const isSummer = isSummerSeason();
@@ -38,6 +53,7 @@ const useTaskLogic = () => {
           plantId: plant.id,
           plantName: plant.plantName,
           plantImage: plant.plantImage,
+          plantImageMimeType: plant.plantImageMimeType,
           type: "Water",
           lastDate: plant.lastWatered,
           isSummer,
@@ -49,6 +65,7 @@ const useTaskLogic = () => {
           plantId: plant.id,
           plantName: plant.plantName,
           plantImage: plant.plantImage,
+          plantImageMimeType: plant.plantImageMimeType,
           type: "Fertilize",
           lastDate: plant.lastFertilized,
           dayUnit: plant.fertilizingDayUnit,
@@ -144,6 +161,7 @@ const TaskCard = ({ task, navigation, calculateDaysLeft }) => {
   };
 
   const daysLeft = calculateDaysLeft(task);
+  const imageUri = buildImageUri(task.plantImage, task.plantImageMimeType);
 
   const typeColor =
     task.type.toLowerCase() === "water"
@@ -188,7 +206,9 @@ const TaskCard = ({ task, navigation, calculateDaysLeft }) => {
           onPress={() => navigation.navigate("Detail", { plantId: task.plantId })}
         >
           <View style={styles.imageContainer}>
-            <Image source={{ uri: task.plantImage }} style={styles.taskImage} />
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.taskImage} />
+            ) : null}
           </View>
 
           <View style={{ flex: 1 }}>

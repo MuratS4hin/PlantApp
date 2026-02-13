@@ -4,7 +4,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../utils/Constants';
 import { careHistory } from '../utils/Constants';
 import useAppStore from '../store/UseAppStore';
-import { formatDate } from '../utils/Helpers';
+import { buildImageUri, formatDate } from '../utils/Helpers';
+import ApiService from '../services/ApiService';
 
 const DetailScreen = ({ navigation, route }) => {
   const { plantId } = route.params;
@@ -21,10 +22,15 @@ const DetailScreen = ({ navigation, route }) => {
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            deletePlant(plant.id);
-            navigation.goBack();
-          },
+          onPress: async () => {
+            try {
+              await ApiService.deletePlant(plant.id);
+              deletePlant(plant.id);
+              navigation.goBack();
+            } catch (error) {
+              Alert.alert("Delete failed", "Unable to delete plant. Please try again.");
+            }
+          }
         },
       ]
     );
@@ -42,6 +48,8 @@ const DetailScreen = ({ navigation, route }) => {
         return unit;
     }
   };
+
+  const plantImageUri = buildImageUri(plant?.plantImage, plant?.plantImageMimeType);
 
   return (
     <View style={styles.container}>
@@ -62,11 +70,13 @@ const DetailScreen = ({ navigation, route }) => {
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Plant Image */}
         <View style={{ padding: 16 }}>
-          <Image
-            source={{ uri: plant.plantImage }}
-            style={styles.detailImage}
-            resizeMode="cover"
-          />
+          {plantImageUri ? (
+            <Image
+              source={{ uri: plantImageUri }}
+              style={styles.detailImage}
+              resizeMode="cover"
+            />
+          ) : null}
         </View>
 
         {/* Care Schedule */}

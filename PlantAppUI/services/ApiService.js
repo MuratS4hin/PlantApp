@@ -1,4 +1,4 @@
-const BASE_URL = 'https://your-api-url.com/api'; // change this to your backend base URL or local IP Address
+const BASE_URL = 'http://192.168.0.11:5001/api';
 
 export default class ApiService {
   static token = null; // Optional: token for auth
@@ -58,5 +58,21 @@ export default class ApiService {
 
   static delete(endpoint) {
     return this.request(endpoint, 'DELETE');
+  }
+
+  static getPlants() {
+    return this.get('plants');
+  }
+
+  static createPlant(plant) {
+    return this.post('plants', plant);
+  }
+
+  static updatePlant(id, plant) {
+    return this.put(`plants/${id}`, plant);
+  }
+
+  static deletePlant(id) {
+    return this.delete(`plants/${id}`);
   }
 }

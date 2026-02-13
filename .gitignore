@@ -1,5 +1,7 @@
-/.DS_Store
-/.expo
-/node_modules
-/dist
-assets/.DS_Store
+PlantAppUI/dist
+PlantAppBE/bin
+PlantAppBE/obj
+PlantAppUI/.DS_Store
+PlantAppUI/.expo
+PlantAppUI/node_modules
+PlantAppUI/app.json

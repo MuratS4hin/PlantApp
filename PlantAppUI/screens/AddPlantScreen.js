@@ -16,7 +16,8 @@ import { COLORS } from "../utils/Constants";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import useAppStore from "../store/UseAppStore";
-import { isSummerSeason } from "../utils/Helpers";
+import { buildImageUri, inferMimeTypeFromUri, isSummerSeason } from "../utils/Helpers";
+import ApiService from "../services/ApiService";
 
 const AddPlantScreen = ({ route, navigation }) => {
   const addPlant = useAppStore((state) => state.addPlant);
@@ -29,6 +30,8 @@ const AddPlantScreen = ({ route, navigation }) => {
   const [plantType, setPlantType] = useState("");
   const [careNotes, setCareNotes] = useState("");
   const [plantImage, setPlantImage] = useState(null);
+  const [plantImageMimeType, setPlantImageMimeType] = useState(null);
+  const [plantImagePreviewUri, setPlantImagePreviewUri] = useState(null);
 
   // Watering
   const [summerWateringNumber, setSummerWateringNumber] = useState("0");
@@ -55,7 +58,15 @@ const AddPlantScreen = ({ route, navigation }) => {
       setPlantName(editPlant.plantName);
       setPlantType(editPlant.plantType);
       setCareNotes(editPlant.careNotes);
-      setPlantImage(editPlant.plantImage);
+      const imageValue = editPlant.plantImage || null;
+      const imageMime =
+        editPlant.plantImageMimeType || inferMimeTypeFromUri(editPlant.plantImage);
+      const isLikelyBase64 =
+        !!imageValue && !/^data:|^file:|^https?:/i.test(imageValue);
+
+      setPlantImage(isLikelyBase64 ? imageValue : null);
+      setPlantImageMimeType(imageMime || null);
+      setPlantImagePreviewUri(buildImageUri(imageValue, imageMime));
 
       setSummerWateringNumber(String(editPlant.summerWateringNumber));
       setSummerWateringUnit(editPlant.summerWateringUnit);
@@ -88,46 +99,56 @@ const AddPlantScreen = ({ route, navigation }) => {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 1,
+      quality: 0.9,
+      base64: true,
     });
     if (!result.canceled) {
-      setPlantImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType || inferMimeTypeFromUri(asset.uri);
+      setPlantImage(asset.base64 || null);
+      setPlantImageMimeType(mimeType || null);
+      setPlantImagePreviewUri(buildImageUri(asset.base64 || asset.uri, mimeType));
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const isSummer = isSummerSeason();
 
+    const summerNumberValue = Number(summerWateringNumber);
+    const winterNumberValue = Number(winterWateringNumber);
+    const fertilizingNumberValue = Number(fertilizingNumber);
+
     const plantData = {
-      id: editPlant ? editPlant.id : Date.now(),
+      id: editPlant ? editPlant.id : undefined,
       plantName,
       plantType,
       plantImage,
+      plantImageMimeType,
       careNotes,
       sunlight: sunlightValue,
 
       // Seasonal Watering
       isSummer,
-      summerWateringNumber,
+      summerWateringNumber: summerNumberValue,
       summerWateringUnit,
       summerWateringDayUnit:
-        summerWateringNumber *
+        summerNumberValue *
         (summerWateringUnit === "weeks" ? 7 : summerWateringUnit === "months" ? 30 : 1),
 
-      winterWateringNumber,
+      winterWateringNumber: winterNumberValue,
       winterWateringUnit,
       winterWateringDayUnit:
-        winterWateringNumber *
+        winterNumberValue *
         (winterWateringUnit === "weeks" ? 7 : winterWateringUnit === "months" ? 30 : 1),
 
       // Fertilizing
-      fertilizingNumber,
+      fertilizingNumber: fertilizingNumberValue,
       fertilizingUnit,
       fertilizingDayUnit:
-        fertilizingNumber *
+        fertilizingNumberValue *
         (fertilizingUnit === "weeks" ? 7 : fertilizingUnit === "months" ? 30 : 1),
 
       // Last Actions
@@ -135,15 +156,21 @@ const AddPlantScreen = ({ route, navigation }) => {
       lastFertilized: editPlant ? editPlant.lastFertilized : Date.now(),
     };
 
-    if (editPlant) {
-      updatePlant(plantData);
-      alert("Plant updated successfully!");
-    } else {
-      addPlant(plantData);
-      alert("Plant saved successfully!");
-    }
+    try {
+      if (editPlant) {
+        const updatedPlant = await ApiService.updatePlant(editPlant.id, plantData);
+        updatePlant(updatedPlant);
+        alert("Plant updated successfully!");
+      } else {
+        const createdPlant = await ApiService.createPlant(plantData);
+        addPlant(createdPlant);
+        alert("Plant saved successfully!");
+      }
 
-    navigation.goBack();
+      navigation.goBack();
+    } catch (error) {
+      alert("Failed to save plant. Please try again.");
+    }
   };
 
   const renderModalPicker = () => {
@@ -227,8 +254,11 @@ const AddPlantScreen = ({ route, navigation }) => {
       >
         {/* Photo Upload */}
         <TouchableOpacity style={styles.addPhotoContainer} onPress={pickImage}>
-          {plantImage ? (
-            <Image source={{ uri: plantImage }} style={styles.plantImage} />
+          {plantImagePreviewUri ? (
+            <Image
+              source={{ uri: plantImagePreviewUri }}
+              style={styles.plantImage}
+            />
           ) : (
             <>
               <MaterialIcons

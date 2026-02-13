@@ -1,9 +1,8 @@
-import React from 'react';
 import { SafeAreaView, View, ScrollView, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../utils/Constants';
+import { buildImageUri } from '../utils/Helpers';
 import useAppStore from '../store/UseAppStore';
-
 
 const MyPlantsScreen = ({ navigation }) => {
   const allPlants = useAppStore((state) => state.AllPlants);
@@ -31,7 +30,12 @@ const MyPlantsScreen = ({ navigation }) => {
               style={styles.plantCard}
               onPress={() => navigation.navigate("Detail", { plantId: item.id })}
             >
-              <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
+              {buildImageUri(item.plantImage, item.plantImageMimeType) ? (
+                <Image
+                  source={{ uri: buildImageUri(item.plantImage, item.plantImageMimeType) }}
+                  style={styles.plantImage}
+                />
+              ) : null}
               <View style={styles.plantInfo}>
                 <Text style={styles.plantName}>{item.plantName}</Text>
                 {/*<Text style={styles.plantStatus}>{item.plantStatus}</Text>*/}
