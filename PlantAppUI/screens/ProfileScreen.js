@@ -10,6 +10,7 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { COLORS } from '../utils/Constants';
 import useAppStore from '../store/UseAppStore';
@@ -18,55 +19,29 @@ import ApiService from '../services/ApiService';
 export default function ProfileScreen() {
   const authUser = useAppStore((state) => state.authUser);
   const clearAuth = useAppStore((state) => state.clearAuth);
-  const setAuthUser = useAppStore((state) => state.setAuthUser);
+  const clearPlants = useAppStore((state) => state.clearPlants);
 
-  const initialValues = useMemo(
-    () => ({
-      fullName: authUser?.fullName || '',
-      phoneNumber: authUser?.phoneNumber || '',
-      location: authUser?.location || '',
-      bio: authUser?.bio || '',
-    }),
-    [authUser]
-  );
-
-  const [fullName, setFullName] = useState(initialValues.fullName);
-  const [phoneNumber, setPhoneNumber] = useState(initialValues.phoneNumber);
-  const [location, setLocation] = useState(initialValues.location);
-  const [bio, setBio] = useState(initialValues.bio);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    setFullName(initialValues.fullName);
-    setPhoneNumber(initialValues.phoneNumber);
-    setLocation(initialValues.location);
-    setBio(initialValues.bio);
-  }, [initialValues]);
-
-  const handleSave = async () => {
-    if (!authUser?.id) {
-      setError('Missing user information.');
-      return;
-    }
-
-    setError('');
-    setSaving(true);
-    try {
-      const updatedUser = await ApiService.updateProfile({
-        id: authUser.id,
-        fullName: fullName.trim() || null,
-        phoneNumber: phoneNumber.trim() || null,
-        location: location.trim() || null,
-        bio: bio.trim() || null,
-      });
-
-      setAuthUser(updatedUser);
-    } catch (err) {
-      setError(err.message || 'Profile update failed.');
-    } finally {
-      setSaving(false);
-    }
+  const deleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone and all your plants will be lost.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await ApiService.deleteAccount(authUser.id);
+              clearPlants();
+              clearAuth();
+            } catch (error) {
+              Alert.alert('Error', error.message || 'Failed to delete account. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -78,61 +53,11 @@ export default function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.title}>Profile</Text>
           <Text style={styles.subtitle}>{authUser?.email || 'No user data'}</Text>
-
-          <Text style={styles.label}>Full name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Your name"
-            placeholderTextColor={COLORS.textSecondary}
-            value={fullName}
-            onChangeText={setFullName}
-          />
-
-          <Text style={styles.label}>Phone</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Phone number"
-            placeholderTextColor={COLORS.textSecondary}
-            keyboardType="phone-pad"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-          />
-
-          <Text style={styles.label}>Location</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="City, Country"
-            placeholderTextColor={COLORS.textSecondary}
-            value={location}
-            onChangeText={setLocation}
-          />
-
-          <Text style={styles.label}>Bio</Text>
-          <TextInput
-            style={[styles.input, styles.bioInput]}
-            placeholder="Tell us about your plants"
-            placeholderTextColor={COLORS.textSecondary}
-            multiline
-            value={bio}
-            onChangeText={setBio}
-          />
-
-          {!!error && <Text style={styles.error}>{error}</Text>}
-
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <Text style={styles.saveText}>Save Changes</Text>
-            )}
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.logoutButton} onPress={clearAuth}>
             <Text style={styles.logoutText}>Log Out</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.deleteButton} onPress={deleteAccount}>
+            <Text style={styles.deleteText}>Delete Account</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -167,10 +92,18 @@ const styles = StyleSheet.create({
   saveText: { color: COLORS.white, fontWeight: '600' },
   logoutButton: {
     marginTop: 24,
-    backgroundColor: COLORS.textPrimary,
+    backgroundColor: COLORS.primary,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
   },
   logoutText: { color: COLORS.white, fontWeight: '600' },
+  deleteButton: {
+    marginTop: 12,
+    backgroundColor: COLORS.delete,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  deleteText: { color: COLORS.white, fontWeight: '600' },
 });

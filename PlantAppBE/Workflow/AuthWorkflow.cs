@@ -3,16 +3,19 @@ using System.Threading.Tasks;
 using PlantAppBE.DataAccess;
 using PlantAppBE.Models;
 using PlantAppBE.Security;
+using PlantAppBE.Services;
 
 namespace PlantAppBE.Workflow
 {
     public class AuthWorkflow : IAuthWorkflow
     {
         private readonly Database _database;
+        private readonly IEmailService _emailService;
 
-        public AuthWorkflow(Database database)
+        public AuthWorkflow(Database database, IEmailService emailService)
         {
             _database = database;
+            _emailService = emailService;
         }
 
         public async Task<AuthResult> RegisterAsync(RegisterRequest request)
@@ -127,9 +130,91 @@ namespace PlantAppBE.Workflow
             };
         }
 
+        public async Task<AuthResult> DeleteAccountAsync(int id)
+        {
+            if (id <= 0)
+            {
+                return new AuthResult { Success = false, Message = "Invalid user id." };
+            }
+
+            var deleted = await _database.DeleteUserAsync(id);
+            if (!deleted)
+            {
+                return new AuthResult { Success = false, Message = "User not found." };
+            }
+
+            return new AuthResult { Success = true, Message = "Account deleted successfully." };
+        }
+
+        public async Task<AuthResult> ForgotPasswordAsync(ForgotPasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains("@"))
+            {
+                return new AuthResult { Success = false, Message = "Please enter a valid email address." };
+            }
+
+            var user = await _database.GetUserByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return new AuthResult { Success = false, Message = "No account found with that email." };
+            }
+
+            var code = GenerateResetCode();
+            var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15).ToUnixTimeSeconds();
+
+            await _database.CreatePasswordResetTokenAsync(user.Id, code, expiresAt);
+
+            try
+            {
+                await _emailService.SendPasswordResetCodeAsync(request.Email.Trim(), code);
+            }
+            catch (Exception ex)
+            {
+                return new AuthResult { Success = false, Message = "Failed to send reset code. Please try again later." };
+            }
+
+            return new AuthResult { Success = true, Message = "Reset code sent to your email." };
+        }
+
+        public async Task<AuthResult> VerifyResetCodeAsync(VerifyResetCodeRequest request)
+        {
+            var token = await _database.GetValidPasswordResetTokenAsync(request.Email, request.Code);
+            if (token == null)
+            {
+                return new AuthResult { Success = false, Message = "Invalid or expired code. Please try again." };
+            }
+
+            return new AuthResult { Success = true, Message = "Code verified." };
+        }
+
+        public async Task<AuthResult> ResetPasswordAsync(ResetPasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+            {
+                return new AuthResult { Success = false, Message = "Password must be at least 6 characters." };
+            }
+
+            var token = await _database.GetValidPasswordResetTokenAsync(request.Email, request.Code);
+            if (token == null)
+            {
+                return new AuthResult { Success = false, Message = "Invalid or expired code. Please start over." };
+            }
+
+            var (hash, salt) = PasswordHasher.HashPassword(request.NewPassword);
+            await _database.UpdateUserPasswordAsync(token.UserId, hash, salt);
+            await _database.MarkResetTokenUsedAsync(token.Id);
+
+            return new AuthResult { Success = true, Message = "Password reset successfully. You can now log in." };
+        }
+
+        private static string GenerateResetCode()
+        {
+            var random = new Random();
+            return random.Next(100000, 999999).ToString();
+        }
+
         private static string? ValidateCredentials(string email, string password)
         {
-            Console.WriteLine($"Validating credentials: email='{email}', password length={password?.Length ?? 0}");
             if (string.IsNullOrWhiteSpace(email) || !email.Contains("@"))
             {
                 return "Please enter a valid email address.";

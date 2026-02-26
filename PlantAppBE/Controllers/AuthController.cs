@@ -20,7 +20,6 @@ namespace PlantAppBE.Controllers
         [HttpPost("register")]
         public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
         {
-            Console.WriteLine($"Received registration request for email: {request}");
             var result = await _workflow.RegisterAsync(request);
             if (!result.Success)
             {
@@ -52,6 +51,54 @@ namespace PlantAppBE.Controllers
             }
 
             return Ok(result.User);
+        }
+
+        [HttpDelete("account/{id}")]
+        public async Task<IActionResult> DeleteAccount(int id)
+        {
+            var result = await _workflow.DeleteAccountAsync(id);
+            if (!result.Success)
+            {
+                return BadRequest(new { message = result.Message });
+            }
+
+            return Ok(new { message = result.Message });
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+        {
+            var result = await _workflow.ForgotPasswordAsync(request);
+            if (!result.Success)
+            {
+                return BadRequest(new { message = result.Message });
+            }
+
+            return Ok(new { message = result.Message });
+        }
+
+        [HttpPost("verify-reset-code")]
+        public async Task<IActionResult> VerifyResetCode(VerifyResetCodeRequest request)
+        {
+            var result = await _workflow.VerifyResetCodeAsync(request);
+            if (!result.Success)
+            {
+                return BadRequest(new { message = result.Message });
+            }
+
+            return Ok(new { message = result.Message });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
+        {
+            var result = await _workflow.ResetPasswordAsync(request);
+            if (!result.Success)
+            {
+                return BadRequest(new { message = result.Message });
+            }
+
+            return Ok(new { message = result.Message });
         }
     }
 }

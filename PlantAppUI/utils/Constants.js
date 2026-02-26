@@ -7,6 +7,7 @@ export const COLORS = {
   white: "#FFFFFF",
   gray100: "#F3F4F6",
   gray200: "#E5E7EB",
+  delete: "#D14343",
 };
 
 

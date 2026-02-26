@@ -8,5 +8,9 @@ namespace PlantAppBE.Workflow
         Task<AuthResult> RegisterAsync(RegisterRequest request);
         Task<AuthResult> LoginAsync(LoginRequest request);
         Task<AuthResult> UpdateProfileAsync(UpdateProfileRequest request);
+        Task<AuthResult> DeleteAccountAsync(int id);
+        Task<AuthResult> ForgotPasswordAsync(ForgotPasswordRequest request);
+        Task<AuthResult> VerifyResetCodeAsync(VerifyResetCodeRequest request);
+        Task<AuthResult> ResetPasswordAsync(ResetPasswordRequest request);
     }
 }

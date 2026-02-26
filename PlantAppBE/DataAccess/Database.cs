@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Npgsql;
-using PlantAppBE.Models;
 using NpgsqlTypes;
+using PlantAppBE.Models;
 
 namespace PlantAppBE.DataAccess
 {
@@ -18,7 +18,7 @@ namespace PlantAppBE.DataAccess
         }
 
         private string ConnectionString =>
-            $"Host={_settings.Host};Port={_settings.Port};Database={_settings.Database};Username={_settings.Username};Password={_settings.Password}";
+            $"Host={_settings.Host};Port={_settings.Port};Database={_settings.Database};Username={_settings.Username};Password={_settings.Password};SSL Mode=Require;Trust Server Certificate=true";
 
         #region Create
         public async Task EnsureCreatedAsync()
@@ -73,8 +73,20 @@ namespace PlantAppBE.DataAccess
             await using var createUsersIndexCommand = new NpgsqlCommand(createUsersIndexSql, connection);
             await createUsersIndexCommand.ExecuteNonQueryAsync();
 
+            const string createPasswordResetTokensSql = @"
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    code TEXT NOT NULL,
+                    expires_at BIGINT NOT NULL,
+                    used BOOLEAN NOT NULL DEFAULT false
+                );";
+
             await using var createPlantsCommand = new NpgsqlCommand(createPlantsSql, connection);
             await createPlantsCommand.ExecuteNonQueryAsync();
+
+            await using var createPasswordResetTokensCommand = new NpgsqlCommand(createPasswordResetTokensSql, connection);
+            await createPasswordResetTokensCommand.ExecuteNonQueryAsync();
         }
 
         public async Task<User> CreateUserAsync(User user)
@@ -444,7 +456,113 @@ namespace PlantAppBE.DataAccess
         }
         #endregion
 
+        #region PasswordReset
+        public async Task CreatePasswordResetTokenAsync(int userId, string code, long expiresAt)
+        {
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            // Remove any existing tokens for this user first
+            const string deleteSql = @"DELETE FROM password_reset_tokens WHERE user_id = @user_id;";
+            await using var deleteCommand = new NpgsqlCommand(deleteSql, connection);
+            deleteCommand.Parameters.AddWithValue("user_id", userId);
+            await deleteCommand.ExecuteNonQueryAsync();
+
+            const string insertSql = @"
+                INSERT INTO password_reset_tokens (user_id, code, expires_at)
+                VALUES (@user_id, @code, @expires_at);";
+            await using var insertCommand = new NpgsqlCommand(insertSql, connection);
+            insertCommand.Parameters.AddWithValue("user_id", userId);
+            insertCommand.Parameters.AddWithValue("code", code);
+            insertCommand.Parameters.AddWithValue("expires_at", expiresAt);
+            await insertCommand.ExecuteNonQueryAsync();
+        }
+
+        public async Task<PasswordResetToken?> GetValidPasswordResetTokenAsync(string email, string code)
+        {
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            const string querySql = @"
+                SELECT t.id, t.user_id, t.code, t.expires_at, t.used
+                FROM password_reset_tokens t
+                JOIN users u ON u.id = t.user_id
+                WHERE LOWER(u.email) = LOWER(@email)
+                  AND t.code = @code
+                  AND t.used = false
+                  AND t.expires_at > @now
+                ORDER BY t.id DESC
+                LIMIT 1;";
+
+            await using var command = new NpgsqlCommand(querySql, connection);
+            command.Parameters.AddWithValue("email", email);
+            command.Parameters.AddWithValue("code", code);
+            command.Parameters.AddWithValue("now", now);
+
+            await using var reader = await command.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
+                return null;
+
+            return new PasswordResetToken
+            {
+                Id = reader.GetInt32(0),
+                UserId = reader.GetInt32(1),
+                Code = reader.GetString(2),
+                ExpiresAt = reader.GetInt64(3),
+                Used = reader.GetBoolean(4)
+            };
+        }
+
+        public async Task MarkResetTokenUsedAsync(int tokenId)
+        {
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            const string sql = @"UPDATE password_reset_tokens SET used = true WHERE id = @id;";
+            await using var command = new NpgsqlCommand(sql, connection);
+            command.Parameters.AddWithValue("id", tokenId);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        public async Task UpdateUserPasswordAsync(int userId, string passwordHash, byte[] passwordSalt)
+        {
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            const string sql = @"
+                UPDATE users
+                SET password_hash = @password_hash,
+                    password_salt = @password_salt
+                WHERE id = @id;";
+
+            await using var command = new NpgsqlCommand(sql, connection);
+            command.Parameters.AddWithValue("id", userId);
+            command.Parameters.AddWithValue("password_hash", passwordHash);
+            var saltParam = command.Parameters.Add("password_salt", NpgsqlDbType.Bytea);
+            saltParam.Value = passwordSalt;
+            await command.ExecuteNonQueryAsync();
+        }
+        #endregion
+
         #region Delete
+        public async Task<bool> DeleteUserAsync(int id)
+        {
+            await using var connection = new NpgsqlConnection(ConnectionString);
+            await connection.OpenAsync();
+
+            const string deleteSql = @"
+                DELETE FROM users
+                WHERE id = @id;";
+
+            await using var command = new NpgsqlCommand(deleteSql, connection);
+            command.Parameters.AddWithValue("id", id);
+
+            var affected = await command.ExecuteNonQueryAsync();
+            return affected > 0;
+        }
+
         public async Task<bool> DeletePlantAsync(int id)
         {
             await using var connection = new NpgsqlConnection(ConnectionString);

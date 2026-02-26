@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PlantAppBE.DataAccess;
+using PlantAppBE.Services;
 using PlantAppBE.Workflow;
 
 namespace PlantAppBE
@@ -22,6 +23,8 @@ namespace PlantAppBE
             services.AddControllers();
             services.Configure<DatabaseSettings>(Configuration.GetSection("Database"));
             services.AddSingleton<Database>();
+            services.Configure<EmailSettings>(Configuration.GetSection("Email"));
+            services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IPlantWorkflow, PlantWorkflow>();
             services.AddScoped<IAuthWorkflow, AuthWorkflow>();
 
@@ -44,10 +47,10 @@ namespace PlantAppBE
                 app.UseDeveloperExceptionPage();
             }
 
-            // Enable CORS
-            app.UseCors("AllowAll");
-
             app.UseRouting();
+
+            // Enable CORS - must be after UseRouting for proper preflight handling
+            app.UseCors("AllowAll");
 
             using (var scope = app.ApplicationServices.CreateScope())
             {
