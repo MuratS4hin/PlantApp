@@ -1,18 +1,30 @@
 {
   "cli": {
     "version": ">= 16.19.3",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "scheme": "PlantCare"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "scheme": "PlantCare"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "ios": {
+        "scheme": "PlantCare",
+        "autoIncrement": true
+      },
+      "android": {
+        "autoIncrement": true
+      }
     }
   },
   "submit": {

@@ -1,0 +1,34 @@
+# Dependencies — reinstalled on the build server
+node_modules
+/node_modules
+
+# Web export output — not needed for native builds
+dist
+/dist
+
+# Local Expo cache
+.expo
+/.expo
+.expo-shared
+/.expo-shared
+
+# Lock file — not needed on build server
+package-lock.json
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+
+# Docker image tarballs
+*.tar
+**/*.tar
+
+# Android local builds
+android/.gradle
+android/build
+android/app/build
+
+# iOS local builds
+ios/build
+ios/Pods
+ios/DerivedData

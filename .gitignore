@@ -6,3 +6,6 @@ PlantAppUI/.expo
 PlantAppUI/node_modules
 PlantAppUI/app.json
 PlantAppBE/appsettings.json
+.DS_Store
+*.tar
+PlantAppBE/plantappbe.tar
