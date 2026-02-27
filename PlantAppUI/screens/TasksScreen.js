@@ -10,12 +10,14 @@ import {
   StyleSheet,
   ImageBackground,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../utils/Constants';
 import useAppStore from '../store/UseAppStore';
 import { buildImageUri, isSummerSeason } from "../utils/Helpers";
 import ApiService from '../services/ApiService';
+import NotificationService from '../services/NotificationService';
 
 const TABS = {
   UPCOMING: 'Upcoming',
@@ -118,10 +120,13 @@ const TabButton = ({ title, isActive, onPress }) => (
 
 const TaskCard = ({ task, navigation, calculateDaysLeft }) => {
   const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const updatePlant = useAppStore((state) => state.updatePlant);
   const getPlant = useAppStore.getState().getPlant;
+  const allPlants = useAppStore((state) => state.AllPlants);
+  const notificationSettings = useAppStore((state) => state.notificationSettings);
 
   const handleDone = () => {
     setDone(true);
@@ -140,7 +145,7 @@ const TaskCard = ({ task, navigation, calculateDaysLeft }) => {
     }).start(() => setDone(false));
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     const updateKey =
       task.type.toLowerCase() === "water"
         ? "lastWatered"
@@ -149,10 +154,29 @@ const TaskCard = ({ task, navigation, calculateDaysLeft }) => {
     const selectedPlant = getPlant(task.plantId);
     if (!selectedPlant) return;
 
-    updatePlant({
+    const updatedPlant = {
       ...selectedPlant,
       [updateKey]: Date.now(),
-    });
+    };
+    
+    setLoading(true);
+    try {
+      // Save to backend API
+      await ApiService.updatePlant(selectedPlant.id, updatedPlant);
+      
+      // Update local store
+      updatePlant(updatedPlant);
+
+      // Reschedule notifications after task completion
+      if (notificationSettings.notificationsEnabled) {
+        await NotificationService.scheduleNotificationsForPlants(allPlants, notificationSettings);
+      }
+    } catch (error) {
+      console.error('Failed to update plant:', error);
+      // Optionally show an error message to the user
+    } finally {
+      setLoading(false);
+    }
 
     Animated.timing(slideAnim, {
       toValue: 0,
@@ -184,12 +208,18 @@ const TaskCard = ({ task, navigation, calculateDaysLeft }) => {
             zIndex: 2,
           }}
         >
-          <TouchableOpacity onPress={handleApprove} style={{ marginHorizontal: 5 }}>
-            <MaterialIcons name="check-circle" size={28} color={COLORS.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleCancel} style={{ marginHorizontal: 5 }}>
-            <MaterialIcons name="cancel" size={28} color={COLORS.error || "red"} />
-          </TouchableOpacity>
+          {loading ? (
+            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginHorizontal: 5 }} />
+          ) : (
+            <>
+              <TouchableOpacity onPress={handleApprove} style={{ marginHorizontal: 5 }} disabled={loading}>
+                <MaterialIcons name="check-circle" size={28} color={COLORS.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleCancel} style={{ marginHorizontal: 5 }} disabled={loading}>
+                <MaterialIcons name="cancel" size={28} color={COLORS.error || "red"} />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       )}
 

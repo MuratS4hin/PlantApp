@@ -6,12 +6,15 @@ import { careHistory } from '../utils/Constants';
 import useAppStore from '../store/UseAppStore';
 import { buildImageUri, formatDate } from '../utils/Helpers';
 import ApiService from '../services/ApiService';
+import NotificationService from '../services/NotificationService';
 
 const DetailScreen = ({ navigation, route }) => {
   const { plantId } = route.params;
   const plant = useAppStore((state) => state.getPlant(plantId));
 
   const deletePlant = useAppStore((state) => state.deletePlant);
+  const allPlants = useAppStore((state) => state.AllPlants);
+  const notificationSettings = useAppStore((state) => state.notificationSettings);
 
   const handleDelete = () => {
     Alert.alert(
@@ -26,6 +29,12 @@ const DetailScreen = ({ navigation, route }) => {
             try {
               await ApiService.deletePlant(plant.id);
               deletePlant(plant.id);
+              
+              // Reschedule notifications after deleting plant
+              if (notificationSettings.notificationsEnabled) {
+                await NotificationService.scheduleNotificationsForPlants(allPlants, notificationSettings);
+              }
+              
               navigation.goBack();
             } catch (error) {
               Alert.alert("Delete failed", "Unable to delete plant. Please try again.");

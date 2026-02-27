@@ -7,6 +7,11 @@ const useAppStore = create(
     (set, get) => ({
       AllPlants: [],
       authUser: null,
+      notificationSettings: {
+        notificationsEnabled: true,
+        wateringNotifications: true,
+        fertilizingNotifications: true,
+      },
 
       // Get a plant by ID
       getPlant: (id) => {
@@ -42,11 +47,21 @@ const useAppStore = create(
 
       setAuthUser: (user) => set({ authUser: user }),
       clearAuth: () => set({ authUser: null }),
+
+      // Update notification settings
+      updateNotificationSettings: (settings) =>
+        set((state) => ({
+          notificationSettings: { ...state.notificationSettings, ...settings },
+        })),
     }),
     {
       name: "plants-storage",
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ AllPlants: state.AllPlants, authUser: state.authUser }),
+      partialize: (state) => ({ 
+        AllPlants: state.AllPlants, 
+        authUser: state.authUser,
+        notificationSettings: state.notificationSettings,
+      }),
     }
   )
 );

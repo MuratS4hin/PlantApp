@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -18,13 +19,17 @@ import * as ImagePicker from "expo-image-picker";
 import useAppStore from "../store/UseAppStore";
 import { buildImageUri, inferMimeTypeFromUri, isSummerSeason } from "../utils/Helpers";
 import ApiService from "../services/ApiService";
+import NotificationService from "../services/NotificationService";
 
 const AddPlantScreen = ({ route, navigation }) => {
   const addPlant = useAppStore((state) => state.addPlant);
   const updatePlant = useAppStore((state) => state.updatePlant);
   const authUser = useAppStore((state) => state.authUser);
+  const allPlants = useAppStore((state) => state.AllPlants);
+  const notificationSettings = useAppStore((state) => state.notificationSettings);
 
   const editPlant = route?.params?.plant || null; // Edit mode if plant exists
+  const [loading, setLoading] = useState(false);
 
   // Plant basic info
   const [plantName, setPlantName] = useState("");
@@ -158,6 +163,7 @@ const AddPlantScreen = ({ route, navigation }) => {
       lastFertilized: editPlant ? editPlant.lastFertilized : Date.now(),
     };
 
+    setLoading(true);
     try {
       if (editPlant) {
         const updatedPlant = await ApiService.updatePlant(editPlant.id, plantData);
@@ -169,9 +175,16 @@ const AddPlantScreen = ({ route, navigation }) => {
         alert("Plant saved successfully!");
       }
 
+      // Reschedule notifications after adding/updating plant
+      if (notificationSettings.notificationsEnabled) {
+        await NotificationService.scheduleNotificationsForPlants(allPlants, notificationSettings);
+      }
+
       navigation.goBack();
     } catch (error) {
       alert("Failed to save plant. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -338,10 +351,14 @@ const AddPlantScreen = ({ route, navigation }) => {
         </View>
 
         {/* Save/Update button */}
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>
-            {editPlant ? "Update" : "Save"}
-          </Text>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <Text style={styles.saveButtonText}>
+              {editPlant ? "Update" : "Save"}
+            </Text>
+          )}
         </TouchableOpacity>
       </KeyboardAwareScrollView>
 
