@@ -25,17 +25,16 @@ WORKDIR /app
 # Copy published application
 COPY --from=publish /app/publish .
 
-# Expose port (adjust if needed)
-EXPOSE 5000
+# Expose port
 EXPOSE 5001
 
 # Set environment variables
-ENV ASPNETCORE_URLS=http://+:5000;https://+:5001
+ENV ASPNETCORE_URLS=http://+:5001
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD curl -f http://localhost:5001/health || exit 1
 
 # Run the application
 ENTRYPOINT ["dotnet", "PlantAppBE.dll"]

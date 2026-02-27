@@ -7,7 +7,7 @@ using PlantAppBE.Workflow;
 namespace PlantAppBE.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class PlantsController : ControllerBase
     {
         private readonly IPlantWorkflow _workflow;

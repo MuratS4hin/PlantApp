@@ -1,4 +1,4 @@
-const BASE_URL = 'http://192.168.0.11:5001/api'; //'https://muratsahindev/api/plantapp'; // Change to your actual API URL
+const BASE_URL = 'https://muratsahindev.com/plant';
 
 export default class ApiService {
   static token = null; // Optional: token for auth

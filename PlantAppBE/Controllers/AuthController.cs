@@ -7,7 +7,7 @@ using PlantAppBE.Workflow;
 namespace PlantAppBE.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthWorkflow _workflow;
